@@ -101,6 +101,147 @@ export function abrirApp(appId: string): void {
     .catch(() => alert("Falha ao carregar o aplicativo"));
 }
 
+/**
+ * Abre os detalhes de uma ferramenta de compatibilidade na mesma janela
+ * usada pelos demais aplicativos. Essas ferramentas já estão instaladas:
+ * a janela não oferece instalação nem atualização.
+ */
+function abrirDetalheCompat(id: string, tile: HTMLElement): void {
+  const card = document.getElementById("app-detalhe-card");
+  const scrim = document.getElementById("app-manager-scrim");
+  if (!card || !scrim) return;
+
+  const nomeTile = tile.querySelector<HTMLElement>(".tool-tile__name")?.textContent?.trim()
+    ?? tile.textContent?.trim()
+    ?? id;
+  const titulo = document.getElementById("app-manager-title");
+  if (titulo) titulo.textContent = `Gerenciar ${nomeTile}`;
+  setTopbarTitle(nomeTile);
+  card.innerHTML = `<p class="muted">Carregando informações da ferramenta...</p>`;
+  scrim.removeAttribute("hidden");
+  document.body.classList.add("app-manager-open");
+
+  if (id === "wine") {
+    invoke<ForkList>("listar_compat_forks")
+      .then((dados) => {
+        const instalados = (dados.wines ?? []).filter((f) => Boolean(f.versao_atual));
+        const variantes = instalados.length
+          ? instalados.map((f) => `
+              <li class="kv-lista-item">
+                <strong>${esc(f.nome)}</strong>
+                <span class="muted"> — versão ${esc(f.versao_atual ?? "desconhecida")}</span>
+                <div class="compat-progresso-acoes">
+                  <button class="btn btn--outline btn--sm" type="button"
+                    data-compat-remover-wine="${esc(f.chave)}">Remover</button>
+                </div>
+              </li>`).join("")
+          : `<li class="kv-lista-item">Nenhuma variante gerenciada pelo Gamefic foi identificada para remoção.</li>`;
+
+        card.innerHTML = `
+          <div class="app-detalhe__icone" aria-hidden="true"><span style="font-size:40px">W</span></div>
+          <div class="app-detalhe__head">
+            <h2>Wine</h2>
+            <div class="app-detalhe__meta">
+              <span class="pill pill--info">Tipo: camada de compatibilidade Windows</span>
+              <span class="pill pill--info">Fonte: sistema / variantes WineHQ</span>
+            </div>
+            <p class="app-detalhe__desc-breve">Executa aplicações e jogos Windows em Linux.</p>
+            <p class="app-detalhe__desc">As variantes detectadas abaixo já estão instaladas. Esta janela permite somente removê-las; não oferece instalação nem atualização.</p>
+            <h3>Variantes instaladas</h3>
+            <ul class="kv-lista app-detalhe__fontes-lista">${variantes}</ul>
+            <p class="field__status" id="compat-detalhe-status" hidden></p>
+          </div>`;
+      })
+      .catch((e) => {
+        card.innerHTML = `<div class="app-detalhe__head"><h2>Wine</h2>
+          <p class="app-detalhe__desc">Não foi possível consultar as variantes instaladas.</p>
+          <p class="field__status">Erro: ${esc(String(e))}</p></div>`;
+      });
+    return;
+  }
+
+  if (id.startsWith("proton:")) {
+    const nomeProton = id.slice("proton:".length);
+    invoke<ProtonLocal[]>("listar_protons_steam")
+      .then((lista) => {
+        const p = (lista ?? []).find((item) => item.nome === nomeProton);
+        if (!p) {
+          card.innerHTML = `<div class="app-detalhe__head"><h2>${esc(nomeTile)}</h2>
+            <p class="app-detalhe__desc">A ferramenta aparece na visão geral, mas não foi localizada na listagem detalhada do Steam. Atualize a visão geral e tente novamente.</p>
+            <p class="field__status">Nenhuma ação de instalação ou atualização está disponível.</p></div>`;
+          return;
+        }
+        const fonte = p.tipo === "oficial" ? "Steam — ferramenta oficial" : "Steam — ferramenta personalizada";
+        card.innerHTML = `
+          <div class="app-detalhe__icone" aria-hidden="true"><span style="font-size:40px">P</span></div>
+          <div class="app-detalhe__head">
+            <h2>${esc(p.nome)}</h2>
+            <div class="app-detalhe__meta">
+              <span class="pill pill--info">Desenvolvedor: ${p.tipo === "oficial" ? "Valve / Steam" : "Projeto da variante"}</span>
+              <span class="pill pill--info">Fonte: ${esc(fonte)}</span>
+              <span class="pill pill--info">Tipo: ${esc(p.tipo === "oficial" ? "Proton oficial" : "Proton personalizado")}</span>
+            </div>
+            <p class="app-detalhe__desc-breve">Camada de compatibilidade para jogos Windows no Steam.</p>
+            <ul class="kv-lista app-detalhe__fontes-lista">
+              <li class="kv-lista-item">Versão: <strong>${esc(p.versao ?? "Não informada")}</strong></li>
+              <li class="kv-lista-item">Biblioteca: <strong>${esc(p.biblioteca)}</strong></li>
+              <li class="kv-lista-item">Caminho: <strong class="num">${esc(p.caminho)}</strong></li>
+              <li class="kv-lista-item">Estado: <strong>Instalado</strong></li>
+            </ul>
+            <p class="app-detalhe__desc">Esta ferramenta já está instalada. A única ação disponível é removê-la.</p>
+            <div class="compat-progresso-acoes">
+              <button class="btn btn--outline" type="button" id="btn-remover-detalhe-proton">Remover</button>
+            </div>
+            <p class="field__status" id="compat-detalhe-status" hidden></p>
+          </div>`;
+        document.getElementById("btn-remover-detalhe-proton")?.addEventListener("click", () => {
+          const status = document.getElementById("compat-detalhe-status");
+          if (!window.confirm(`Remover ${p.nome}? Esta ação não pode ser desfeita.`)) return;
+          if (status) {
+            status.hidden = false;
+            status.textContent = "Removendo ferramenta...";
+          }
+          invoke<string>("remover_ferramenta_compat", { caminho: p.caminho })
+            .then((msg) => {
+              if (status) status.textContent = msg ?? "Removido";
+              atualizarProtonsSteam();
+              carregarForks();
+              revalidarEstados();
+            })
+            .catch((e) => {
+              if (status) status.textContent = `Erro ao remover: ${String(e)}`;
+            });
+        });
+      })
+      .catch((e) => {
+        card.innerHTML = `<div class="app-detalhe__head"><h2>${esc(nomeTile)}</h2>
+          <p class="field__status">Falha ao carregar detalhes: ${esc(String(e))}</p></div>`;
+      });
+  }
+}
+
+// A remoção de variantes Wine usa o mesmo comando já utilizado pelo modal de compatibilidade.
+function removerWineDoDetalhe(pkg: string, botao: HTMLButtonElement): void {
+  if (!window.confirm(`Remover ${pkg}? Esta ação desinstala a variante pelo gerenciador de pacotes.`)) return;
+  const status = document.getElementById("compat-detalhe-status");
+  if (status) {
+    status.hidden = false;
+    status.textContent = `Removendo ${pkg}...`;
+  }
+  botao.disabled = true;
+  invoke<string>("remover_wine_compat", { pkg })
+    .then((msg) => {
+      if (status) status.textContent = msg ?? "Removido";
+      carregarForks();
+      revalidarEstados();
+      abrirDetalheCompat("wine", document.querySelector<HTMLElement>("#ov-compat .tool-tile[data-app-id='wine']") ?? document.createElement("div"));
+    })
+    .catch((e) => {
+      if (status) status.textContent = `Erro ao remover: ${String(e)}`;
+      botao.disabled = false;
+    });
+}
+
 function renderDetail(d: AppDetail): void {
   const card = document.getElementById("app-detalhe-card");
   if (!card) return;
@@ -309,13 +450,21 @@ export function wireAppClicks(): void {
         abrirModalCompat();
         return;
       }
-      // itens de compatibilidade (Wine, Protons) não têm página de instalação
-      if (gid === "ov-compat") return;
       const id = tile.dataset.appId;
+      if (gid === "ov-compat") {
+        if (id) abrirDetalheCompat(id, tile);
+        return;
+      }
       if (id && !id.startsWith("proton:")) abrirApp(id);
     });
   });
   document.getElementById("btn-fechar-app-manager")?.addEventListener("click", fecharGerenciadorApp);
+  document.getElementById("app-detalhe-card")?.addEventListener("click", (ev) => {
+    const botao = (ev.target as HTMLElement).closest<HTMLButtonElement>("button[data-compat-remover-wine]");
+    if (!botao) return;
+    const pkg = botao.dataset.compatRemoverWine;
+    if (pkg) removerWineDoDetalhe(pkg, botao);
+  });
   document.getElementById("app-manager-scrim")?.addEventListener("click", (ev) => {
     if (ev.target === ev.currentTarget) fecharGerenciadorApp();
   });
