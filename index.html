@@ -1,0 +1,393 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Gamefic</title>
+    <link rel="stylesheet" href="/src/styles/tokens.css" />
+    <link rel="stylesheet" href="/src/styles/base.css" />
+    <link rel="stylesheet" href="/src/styles/components.css" />
+    <link rel="stylesheet" href="/src/styles/layout.css" />
+    <link rel="stylesheet" href="/src/styles/overview.css" />
+    <script type="module" src="/src/main.ts" defer></script>
+  </head>
+
+  <body class="hidden-inicial">
+    <div class="app">
+      <aside class="sidebar">
+        <div class="brand">
+          <div class="brand__mark"></div>
+          <span class="brand__name">Gamefic</span>
+        </div>
+
+        <nav class="nav" aria-label="Navegação principal">
+          <button class="nav__item nav__item--active" data-tab="visao-geral" type="button">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>
+            Apps
+          </button>
+          <button class="nav__item" data-tab="desempenho" type="button">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h4l2.5-7 5 14 2.5-7h4"/></svg>
+            Hardware e Sistema
+          </button>
+          <button class="nav__item" data-tab="kernels" type="button">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="8" width="8" height="8" rx="1.5"/><path d="M10 3v3M14 3v3M10 18v3M14 18v3M3 10h3M3 14h3M18 10h3M18 14h3"/></svg>
+            Kernels e Drivers
+          </button>
+          <button class="nav__item" data-tab="otimizacao" type="button">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.87l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.7 1.7 0 0 0-1.87-.34 1.7 1.7 0 0 0-1.03 1.56V21a2 2 0 1 1-4 0v-.09a1.7 1.7 0 0 0-1.03-1.56 1.7 1.7 0 0 0-1.87.34l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-1.56-1.03H3a2 2 0 1 1 0-4h.09A1.7 1.7 0 0 0 4.6 8.94a1.7 1.7 0 0 0-.34-1.87l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.7 1.7 0 0 0 1.87.34h.09a1.7 1.7 0 0 0 1.03-1.55V3a2 2 0 1 1 4 0v.09a1.7 1.7 0 0 0 1.03 1.56 1.7 1.7 0 0 0 1.87-.34l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.7 1.7 0 0 0-.34 1.87v.09c.22.63.79 1.06 1.46 1.03H21a2 2 0 1 1 0 4h-.09a1.7 1.7 0 0 0-1.51 1.03Z"/></svg>
+            Otimização
+          </button>
+          <button class="nav__item" data-tab="historico" type="button">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>
+            Histórico e Diagnósticos
+          </button>
+        </nav>
+
+        <div class="sys-chip" id="sys-chip">
+          <span class="sys-chip__name">Gamefic</span>
+          <span class="sys-chip__detail num" id="app-version">v0.1.0</span>
+        </div>
+      </aside>
+
+      <header class="topbar">
+        <span class="topbar__title" id="topbar-title">Apps</span>
+        <div class="topbar__spacer"></div>
+        <div class="topbar__status">
+          <span id="status-indicator"><span class="pill pill--info" title="Estado da detecção">Detecção não iniciada</span></span>
+        </div>
+        <button class="icon-btn" id="btn-settings" aria-label="Configurações" title="Configurações">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.87l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.7 1.7 0 0 0-1.87-.34 1.7 1.7 0 0 0-1.03 1.56V21a2 2 0 1 1-4 0v-.09a1.7 1.7 0 0 0-1.03-1.56 1.7 1.7 0 0 0-1.87.34l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-1.56-1.03H3a2 2 0 1 1 0-4h.09A1.7 1.7 0 0 0 4.6 8.94a1.7 1.7 0 0 0-.34-1.87l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.7 1.7 0 0 0 1.87.34h.09a1.7 1.7 0 0 0 1.03-1.55V3a2 2 0 1 1 4 0v.09a1.7 1.7 0 0 0 1.03 1.56 1.7 1.7 0 0 0 1.87-.34l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.7 1.7 0 0 0-.34 1.87v.09c.22.63.79 1.06 1.46 1.03H21a2 2 0 1 1 0 4h-.09a1.7 1.7 0 0 0-1.51 1.03Z"/></svg>
+        </button>
+      </header>
+
+      <main class="content">
+        <section class="page page--active" id="page-visao-geral">
+          <h2 class="page__section-title" style="margin-top: var(--space-5);">Launchers</h2>
+          <div class="card tools-card">
+            <div class="tools-grid" id="ov-launchers">
+              <p class="muted">Consultando...</p>
+            </div>
+          </div>
+
+          <h2 class="page__section-title" style="margin-top: var(--space-5);">Emuladores</h2>
+          <div class="card tools-card">
+            <div class="tools-grid" id="ov-emul">
+              <p class="muted">Consultando...</p>
+            </div>
+          </div>
+
+          <h2 class="page__section-title" style="margin-top: var(--space-5);">Ferramentas de jogos</h2>
+          <div class="card tools-card">
+            <div class="tools-grid" id="ov-tools">
+              <p class="muted">Consultando...</p>
+            </div>
+            <button class="link-arrow" data-tab="otimizacao" type="button">
+              Gerenciar ferramentas
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg>
+            </button>
+          </div>
+
+          <h2 class="page__section-title" style="margin-top: var(--space-5);">Compatibilidade</h2>
+          <div class="card tools-card">
+            <div class="tools-grid" id="ov-compat">
+              <p class="muted">Consultando...</p>
+            </div>
+          </div>
+        </section>
+
+        <section class="page page--detalhe" id="page-app-detalhe">
+          <button class="link-arrow" id="btn-voltar-apps" type="button">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 6-6 6 6 6"/></svg>
+            Voltar
+          </button>
+          <div class="card app-detalhe-card" id="app-detalhe-card">
+            <p class="muted">Carregando...</p>
+          </div>
+        </section>
+
+        <section class="page" id="page-desempenho">
+          <h1 class="page-title">Hardware e Sistema</h1>
+          <p class="page-desc">Hardware detectado com monitoramento em tempo real e informações do sistema.</p>
+          <span class="muted" id="monitor-estado" hidden>Iniciando monitoramento...</span>
+
+          <div class="ov-grid ov-grid--stats">
+            <div class="card stat-card">
+              <div class="stat-card__head">
+                <span class="stat-card__icon stat-card__icon--purple" aria-hidden="true">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="8" width="8" height="8" rx="1.5"/><path d="M10 3v3M14 3v3M10 18v3M14 18v3M3 10h3M3 14h3M18 10h3M18 14h3"/></svg>
+                </span>
+                <span class="stat-card__title">CPU</span>
+              </div>
+              <p class="stat-card__main" id="dp-cpu-modelo">Consultando...</p>
+              <p class="stat-card__meta" id="dp-cpu-detalhe">Consultando...</p>
+              <div class="ring ring--huge">
+                <svg viewBox="0 0 84 84" width="220" height="220" aria-hidden="true">
+                  <circle class="ring__track" cx="42" cy="42" r="36"/>
+                  <circle class="ring__value ring__value--purple" cx="42" cy="42" r="36" id="dp-cpu-ring"/>
+                </svg>
+                <span class="ring__num ring__num--huge num" id="dp-cpu-ring-num">—</span>
+              </div>
+              <canvas id="dp-cpu-spark" class="spark spark--under"></canvas>
+              <dl class="stat-card__foot">
+                <dt>Frequência</dt><dd class="num" id="dp-cpu-frequencia">—</dd>
+              </dl>
+              <dl class="stat-card__foot stat-card__foot--plain">
+                <dt>Temperatura</dt><dd class="num" id="dp-cpu-temperatura">—</dd>
+              </dl>
+            </div>
+
+            <div class="card stat-card">
+              <div class="stat-card__head">
+                <span class="stat-card__icon stat-card__icon--cyan" aria-hidden="true">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M8 21h8M9 9l-3 3 3 3M15 9l3 3-3 3"/></svg>
+                </span>
+                <span class="stat-card__title">GPU</span>
+              </div>
+              <p class="stat-card__main" id="dp-gpu-modelo">Consultando...</p>
+              <div class="gpu-charts">
+                <div class="gpu-chart">
+                  <span class="gpu-chart__label gpu-chart__label--strong">Uso da GPU</span>
+                  <canvas id="dp-gpu-spark" class="spark"></canvas>
+                </div>
+                <div class="gpu-chart">
+                  <span class="gpu-chart__label gpu-chart__label--strong">Memória da GPU / VRAM</span>
+                  <canvas id="dp-gpu-vram" class="spark"></canvas>
+                </div>
+              </div>
+              <dl class="stat-card__foot">
+                <dt>Temperatura</dt><dd class="num" id="dp-gpu-temperatura">—</dd>
+              </dl>
+            </div>
+
+            <div class="card stat-card">
+              <div class="stat-card__head">
+                <span class="stat-card__icon stat-card__icon--cyan" aria-hidden="true">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="18" height="10" rx="2"/><path d="M7 11h.01M11 11h2M15 11h2M19 11h2"/></svg>
+                </span>
+                <span class="stat-card__title">Memória RAM</span>
+              </div>
+              <p class="stat-card__main stat-card__main--big num" id="dp-ram-total">— / —</p>
+              <div class="bar" id="dp-ram-bar"><div class="bar__fill"></div></div>
+              <p class="stat-card__meta num" id="dp-ram-pct">Consultando...</p>
+              <div class="bar bar--swap" id="dp-swap-bar"><div class="bar__fill bar__fill--swap"></div></div>
+              <dl class="stat-card__foot stat-card__foot--plain">
+                <dt>Swap</dt><dd class="num" id="dp-swap-uso">—</dd>
+              </dl>
+              <dl class="stat-card__foot">
+                <dt>Disponível</dt><dd class="num" id="dp-ram-disponivel">—</dd>
+              </dl>
+            </div>
+
+            <div class="card stat-card">
+              <div class="stat-card__head">
+                <span class="stat-card__icon stat-card__icon--cyan" aria-hidden="true">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M4 9h16M9 13v3M12 13v3M15 13v3"/></svg>
+                </span>
+                <span class="stat-card__title">Armazenamento</span>
+              </div>
+              <div class="storage-list" id="dp-storage">
+                <p class="muted">Consultando...</p>
+              </div>
+            </div>
+          </div>
+
+          <h2 class="page__section-title" style="margin-top: var(--space-5);">Sistema</h2>
+          <div class="grid">
+            <div class="card">
+              <div class="card-head"><span class="card__title">Sistema</span></div>
+              <dl class="kv">
+                <dt>Distribuição</dt><dd id="dp-distro">Consultando...</dd>
+                <dt>Kernel</dt><dd id="dp-kernel" class="num">Consultando...</dd>
+                <dt>Arquitetura</dt><dd id="dp-arch" class="num">Consultando...</dd>
+                <dt>Versão do Mesa</dt><dd id="dp-mesa" class="num">Consultando...</dd>
+                <dt>Tempo de atividade</dt><dd id="dp-uptime" class="num">Consultando...</dd>
+              </dl>
+            </div>
+
+            <div class="card">
+              <div class="card-head"><span class="card__title">Drivers gráficos</span></div>
+              <dl class="kv" id="dp-drivers">
+                <dt>Consultando...</dt><dd class="muted">—</dd>
+              </dl>
+            </div>
+          </div>
+        </section>
+
+        <section class="page" id="page-kernels">
+          <h1 class="page-title">Kernels e Drivers</h1>
+          <p class="page-desc">Informações sobre o kernel, GPUs, drivers e componentes gráficos.</p>
+          <h2 class="page__section-title">Sistema</h2>
+          <div class="grid">
+            <div class="card">
+              <div class="card-head"><span class="card__title">Distribuição</span></div>
+              <dl class="kv">
+                <dt>Distribuição</dt><dd id="kd-distro">Consultando...</dd>
+                <dt>Família</dt><dd id="kd-familia">Consultando...</dd>
+                <dt>Versão</dt><dd id="kd-versao-distribuicao" class="num">Consultando...</dd>
+              </dl>
+            </div>
+            <div class="card">
+              <div class="card-head"><span class="card__title">Kernel</span></div>
+              <dl class="kv">
+                <dt>Em execução</dt><dd id="kd-kernel" class="num">Consultando...</dd>
+                <dt>Arquitetura</dt><dd id="kd-arch" class="num">Consultando...</dd>
+              </dl>
+            </div>
+            <div class="card">
+              <div class="card-head"><span class="card__title">Processador</span></div>
+              <dl class="kv">
+                <dt>Modelo</dt><dd id="kd-cpu-modelo">Consultando...</dd>
+                <dt>Núcleos físicos</dt><dd id="kd-cpu-fisicos" class="num">Consultando...</dd>
+                <dt>Threads</dt><dd id="kd-cpu-threads" class="num">Consultando...</dd>
+                <dt>Frequência base</dt><dd id="kd-cpu-frequencia" class="num">Consultando...</dd>
+              </dl>
+            </div>
+          </div>
+          <h2 class="page__section-title">GPUs</h2>
+          <div class="grid" id="kd-gpu-lista"></div>
+          <h2 class="page__section-title">Vulkan</h2>
+          <ul class="card" id="kd-vulkan-lista"></ul>
+          <h2 class="page__section-title">Ferramentas de jogos</h2>
+          <ul class="card" id="kd-ferramentas-lista"></ul>
+        </section>
+
+        <section class="page" id="page-otimizacao">
+          <h1 class="page-title">Otimização</h1>
+          <p class="page-desc">Análise de oportunidades e perfis para preparar o computador para jogos.</p>
+          <h2 class="page__section-title">Estados do sistema</h2>
+          <div class="grid" id="opt-recursos"></div>
+          <h2 class="page__section-title">Recomendações (analisadas a partir do sistema)</h2>
+          <div class="grid" id="opt-recomendacoes"></div>
+          <h2 class="page__section-title">Perfis — estrutura (ativação em etapa futura)</h2>
+          <div class="grid" id="opt-perfis"></div>
+        </section>
+
+        <section class="page" id="page-historico">
+          <h1 class="page-title">Histórico e Diagnósticos</h1>
+          <p class="page-desc" style="display:flex; align-items:center; gap: var(--space-4);">Eventos e operações registradas pelo Gamefic.</p>
+          <div class="card" style="display:flex; align-items:center; gap: var(--space-4); margin-bottom: var(--space-4);">
+            <div class="field">
+              <label class="field__label" for="filtro-categoria">Categoria</label>
+              <select class="field__control" id="filtro-categoria" style="width: auto;">
+                <option value="">Todas</option>
+                <option value="sistema">Sistema</option>
+                <option value="deteccao">Detecção</option>
+                <option value="configuracao">Configuração</option>
+                <option value="otimizacao">Otimização</option>
+                <option value="diagnostico">Diagnóstico</option>
+              </select>
+            </div>
+            <div class="field">
+              <label class="field__label" for="filtro-resultado">Resultado</label>
+              <select class="field__control" id="filtro-resultado" style="width: auto;">
+                <option value="">Todos</option>
+                <option value="concluido">Concluído</option>
+                <option value="falha">Falha</option>
+                <option value="cancelado">Cancelado</option>
+              </select>
+            </div>
+            <span class="topbar__spacer"></span>
+            <button class="btn btn--danger btn--small" id="btn-limpar-historico" type="button">Limpar histórico</button>
+          </div>
+          <ul class="card" id="lista-eventos" style="display:flex; flex-direction:column; gap: var(--space-3);"></ul>
+        </section>
+      </main>
+        <div class="modal-scrim" id="modal-compat" hidden>
+          <div class="modal card" role="dialog" aria-modal="true" aria-label="Instalar compatibilidade">
+            <div class="modal__head">
+              <h3 class="modal__title">Adicionar compatibilidade</h3>
+              <button class="icon-btn" id="btn-fechar-compat" aria-label="Fechar">✕</button>
+            </div>
+            <div class="modal__body">
+              <div class="modal__col" id="modal-col-wine">
+                <h4>Wine</h4>
+                <label class="field"><span class="field__label">Fork</span>
+                  <select class="field__control" id="wine-fork"></select>
+                </label>
+                <label class="field"><span class="field__label">Versão</span>
+                  <select class="field__control" id="wine-versao">
+                    <option value="latest">latest</option>
+                  </select>
+                </label>
+                <p class="muted" id="wine-info">&nbsp;</p>
+                <button class="btn btn--primary" id="btn-instalar-wine" type="button">Instalar</button>
+              </div>
+              <div class="modal__col" id="modal-col-proton">
+                <h4>Proton</h4>
+                <label class="field"><span class="field__label">Fork</span>
+                  <select class="field__control" id="proton-fork"></select>
+                </label>
+                <label class="field"><span class="field__label">Versão</span>
+                  <select class="field__control" id="proton-versao">
+                    <option value="latest">latest</option>
+                  </select>
+                </label>
+                <p class="muted" id="proton-info">&nbsp;</p>
+                <button class="btn btn--primary" id="btn-instalar-proton" type="button">Instalar</button>
+              </div>
+            </div>
+            <div class="compat-progresso-area" id="modal-progresso" hidden></div>
+            <div class="compat-progresso-area" id="modal-historico-botoes" hidden>
+              <button class="btn btn--outline" id="btn-limpar-hist" type="button">Limpar</button>
+            </div>
+            <p class="muted" id="compat-status" hidden>&nbsp;</p>
+          </div>
+        </div>
+
+
+    </div>
+
+    <div class="notifications" id="notifications" aria-live="polite"></div>
+
+    <div class="settings-panel" id="settings-panel" role="dialog" aria-modal="true" aria-labelledby="settings-title">
+      <aside class="settings">
+        <div class="settings__header">
+          <span class="settings__title" id="settings-title">Configurações</span>
+          <button class="icon-btn" id="btn-settings-close" aria-label="Fechar configurações">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+          </button>
+        </div>
+        <div class="settings__body">
+          <h3 class="page__section-title" style="margin-top: 0">Aparência</h3>
+          <div class="settings__option">
+            <span class="settings__name" id="label-tema">Tema</span>
+            <select class="field__control" id="select-tema" aria-labelledby="label-tema" style="width: auto; height: 34px;">
+              <option value="dark">Escuro</option>
+              <option value="light">Claro</option>
+              <option value="auto">Automático</option>
+            </select>
+          </div>
+          <div class="settings__option">
+            <span class="settings__name" id="label-movimento">Movimento reduzido</span>
+            <label class="switch">
+              <input type="checkbox" id="switch-movimento" aria-labelledby="label-movimento" />
+              <span class="switch__track"></span>
+            </label>
+          </div>
+          <h3 class="page__section-title">Monitoramento</h3>
+          <div class="settings__option">
+            <span class="settings__name" id="label-intervalo">Intervalo de coleta</span>
+            <select class="field__control" id="select-intervalo" aria-labelledby="label-intervalo" style="width: auto; height: 34px;">
+              <option value="1000">1 segundo</option>
+              <option value="2000">2 segundos</option>
+              <option value="5000">5 segundos</option>
+            </select>
+          </div>
+          <h3 class="page__section-title">Aplicativo</h3>
+          <div class="settings__about">
+            <dl>
+              <dt>Versão</dt>
+              <dd class="num">0.1.0</dd>
+            </dl>
+          </div>
+          <h3 class="page__section-title">Sobre</h3>
+          <p style="font-size: var(--text-aux); color: var(--text-dim);">Gamefic 0.1.0 — aplicativo desktop Linux para otimização do computador para jogos. Licença GPL-3.0-only.</p>
+          <p style="font-size: var(--text-aux); color: var(--text-dim); margin-top: var(--space-3);">
+            Software livre construído com: Tauri 2 (MIT/Apache-2.0), Vite (MIT), TypeScript (Apache-2.0). Tipografias: Inter e JetBrains Mono (SIL OFL 1.1).
+          </p>
+        </div>
+      </aside>
+    </div>
+    <div id="dialog-root"></div>
+  </body>
+</html>
