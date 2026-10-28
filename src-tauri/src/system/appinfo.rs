@@ -204,7 +204,7 @@ pub(crate) const REGISTRY: &[AppInfo] = &[
     },
     AppInfo {
         id: "winetricks",
-        gui: false,
+        gui: true,
         doc: "https://github.com/Winetricks/winetricks",
         nome: "Winetricks",
         fornecedor: "Winetricks Contributors",
@@ -219,7 +219,7 @@ pub(crate) const REGISTRY: &[AppInfo] = &[
     },
     AppInfo {
         id: "protontricks",
-        gui: false,
+        gui: true,
         doc: "https://github.com/Matoking/protontricks",
         nome: "Protontricks",
         fornecedor: "Matoking",
