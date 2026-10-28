@@ -95,15 +95,17 @@
           </div>
         </section>
 
-        <section class="page page--detalhe" id="page-app-detalhe">
-          <button class="link-arrow" id="btn-voltar-apps" type="button">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 6-6 6 6 6"/></svg>
-            Voltar
-          </button>
-          <div class="card app-detalhe-card" id="app-detalhe-card">
-            <p class="muted">Carregando...</p>
-          </div>
-        </section>
+        <div class="modal-scrim app-manager-scrim" id="app-manager-scrim" hidden>
+          <section class="card app-manager-dialog" role="dialog" aria-modal="true" aria-labelledby="app-manager-title">
+            <div class="app-manager-dialog__head">
+              <h2 id="app-manager-title">Gerenciar aplicativo</h2>
+              <button class="icon-btn" id="btn-fechar-app-manager" type="button" aria-label="Fechar gerenciamento">✕</button>
+            </div>
+            <div class="card app-detalhe-card" id="app-detalhe-card">
+              <p class="muted">Selecione um aplicativo para ver os detalhes.</p>
+            </div>
+          </section>
+        </div>
 
         <section class="page" id="page-desempenho">
           <h1 class="page-title">Hardware e Sistema</h1>

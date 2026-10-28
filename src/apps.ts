@@ -70,6 +70,7 @@ const TITLES: Record<string, string> = {
 export function irParaApps(): void {
   // aciona a transição de volta (zoom reverso) e limpa o sinal logo após a animação
   document.body.dataset.navVolta = "apps";
+  fecharGerenciadorApp();
   isMostarPagina("visao-geral");
   setTopbarTitle("Apps");
   window.setTimeout(() => {
@@ -77,12 +78,24 @@ export function irParaApps(): void {
   }, 300);
 }
 
+function fecharGerenciadorApp(): void {
+  const scrim = document.getElementById("app-manager-scrim");
+  if (scrim) scrim.setAttribute("hidden", "");
+  document.body.classList.remove("app-manager-open");
+  setTopbarTitle("Apps");
+}
+
 export function abrirApp(appId: string): void {
   invoke<AppDetail>("get_app_detail", { appId })
     .then((d) => {
       detalheAtual = d;
       renderDetail(d);
-      mostrarPagina("app-detalhe");
+      const scrim = document.getElementById("app-manager-scrim");
+      if (!scrim) return;
+      scrim.removeAttribute("hidden");
+      document.body.classList.add("app-manager-open");
+      const titulo = document.getElementById("app-manager-title");
+      if (titulo) titulo.textContent = `Gerenciar ${d.nome}`;
       setTopbarTitle(d.nome);
     })
     .catch(() => alert("Falha ao carregar o aplicativo"));
@@ -302,7 +315,13 @@ export function wireAppClicks(): void {
       if (id && !id.startsWith("proton:")) abrirApp(id);
     });
   });
-  document.getElementById("btn-voltar-apps")?.addEventListener("click", irParaApps);
+  document.getElementById("btn-fechar-app-manager")?.addEventListener("click", fecharGerenciadorApp);
+  document.getElementById("app-manager-scrim")?.addEventListener("click", (ev) => {
+    if (ev.target === ev.currentTarget) fecharGerenciadorApp();
+  });
+  document.addEventListener("keydown", (ev) => {
+    if (ev.key === "Escape") fecharGerenciadorApp();
+  });
 
 // fechar modal de compatibilidade ao clicar fora da área do diálogo (backdrop do app)
   document.addEventListener("click", (ev) => {

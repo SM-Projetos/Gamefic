@@ -8,7 +8,7 @@
     border-color var(--t-fast) ease;
 }
 
-.card:hover {
+.card:hover:not(.app-detalhe-card) {
   transform: translateY(-2px);
   box-shadow: 0 0 0 1px var(--card-hover-ring, var(--accent-purple)), var(--card-hover-glow, 0 0 24px rgba(139, 92, 246, 0.35));
 }
@@ -913,4 +913,57 @@
 
 .app-detalhe__fontes-lista {
   margin-top: var(--space-3);
+}
+
+/* ---------- Painel de gerenciamento dos aplicativos ---------- */
+.app-manager-scrim {
+  z-index: 60;
+  padding: var(--space-4);
+  box-sizing: border-box;
+}
+
+.app-manager-scrim[hidden] {
+  display: none;
+}
+
+.app-manager-dialog {
+  width: min(820px, 96vw);
+  max-height: 88vh;
+  overflow: auto;
+  padding: var(--space-5);
+  box-sizing: border-box;
+  box-shadow: 0 22px 60px rgba(0, 0, 0, 0.45);
+}
+
+.app-manager-dialog__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+}
+
+.app-manager-dialog__head h2 {
+  margin: 0;
+  font-size: var(--text-section);
+  overflow-wrap: anywhere;
+}
+
+.app-detalhe-card {
+  margin: 0;
+  box-sizing: border-box;
+}
+
+body.app-manager-open {
+  overflow: hidden;
+}
+
+@media (max-width: 640px) {
+  .app-manager-dialog {
+    padding: var(--space-3);
+  }
+
+  .app-detalhe-card {
+    grid-template-columns: 1fr;
+  }
 }

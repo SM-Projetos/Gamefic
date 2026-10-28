@@ -125,7 +125,7 @@ pub(crate) const REGISTRY: &[AppInfo] = &[
         desc_longa: "Cliente leve focado em baixar, instalar e atualizar jogos da GOG com o mínimo de recursos. Permissão de salvar em outra pasta, atualização automática de títulos e suporte a DLC.",
         nativos: &[],
         snap: None,
-        flatpak: Some("com.github.sharkwouter.minigalaxy"),
+        flatpak: Some("io.github.sharkwouter.Minigalaxy"),
     },
     AppInfo {
         id: "gamemode",
