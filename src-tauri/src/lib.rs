@@ -384,8 +384,29 @@ fn get_system_info() -> system::SystemSnapshot {
 }
 
 #[tauri::command]
-fn abrir_app(app_id: String, overlay: Option<bool>) -> Result<String, String> {
-    system::install::abrir_launcher(&app_id, overlay == Some(true))
+fn abrir_app(
+    app: tauri::AppHandle,
+    state: tauri::State<'_, events::SharedEvents>,
+    app_id: String,
+    overlay: Option<bool>,
+) -> Result<String, String> {
+    match system::install::abrir_launcher(&app_id, overlay == Some(true)) {
+        Ok(msg) => Ok(msg),
+        Err(e) => {
+            // diagnóstico §5: falha de ativação no histórico, sem dados
+            // sensíveis (só o id do aplicativo e o motivo)
+            events::record(
+                &app,
+                &state.inner().clone(),
+                events::EventCategory::Diagnostico,
+                "abrir-app",
+                events::EventResult::Falha,
+                &e,
+                Some(app_id.clone()),
+            );
+            Err(e)
+        }
+    }
 }
 
 #[tauri::command]
@@ -417,13 +438,86 @@ async fn overlay_carregar(perfil: Option<String>) -> Result<system::mangohud::Ca
 
 #[tauri::command]
 async fn overlay_salvar(
+    app: tauri::AppHandle,
+    state: tauri::State<'_, events::SharedEvents>,
     perfil: Option<String>,
     config: system::mangohud::ConfigMangoHud,
 ) -> Result<String, String> {
     let perfil = perfil.unwrap_or_else(|| system::mangohud::PERFIL_GLOBAL.to_string());
-    tauri::async_runtime::spawn_blocking(move || system::mangohud::salvar(&perfil, &config))
+    use events::{EventCategory, EventResult};
+    let resultado = tauri::async_runtime::spawn_blocking(move || {
+        system::mangohud::salvar(&perfil.clone(), &config)
+    })
+    .await
+    .map_err(|e| format!("falha na tarefa de gravação: {e}"))?
+    .map_err(|e| {
+        events::record(
+            &app,
+            &state.inner().clone(),
+            EventCategory::Configuracao,
+            "overlay-salvar",
+            EventResult::Falha,
+            &e,
+            None,
+        );
+        e
+    })?;
+    events::record(
+        &app,
+        &state.inner().clone(),
+        EventCategory::Configuracao,
+        "overlay-salvar",
+        EventResult::Concluido,
+        &resultado,
+        None,
+    );
+    Ok(resultado)
+}
+
+/// perfis existentes no diretório do MangoHud (arquivos `<nome>.conf`;
+/// o global não entra na lista)
+#[tauri::command]
+async fn overlay_perfis() -> Vec<String> {
+    tauri::async_runtime::spawn_blocking(system::mangohud::perfis_existentes)
         .await
-        .map_err(|e| format!("falha na tarefa de gravação: {e}"))?
+        .unwrap_or_default()
+}
+
+/// remove o arquivo de um perfil (o global é recusado pelo backend;
+/// os jogos com esse nome de processo voltam a usar o global)
+#[tauri::command]
+async fn overlay_remover_perfil(
+    app: tauri::AppHandle,
+    state: tauri::State<'_, events::SharedEvents>,
+    perfil: String,
+) -> Result<String, String> {
+    let resultado = tauri::async_runtime::spawn_blocking(move || {
+        system::mangohud::remover(&perfil.clone())
+    })
+    .await
+    .map_err(|e| format!("falha na tarefa de remoção: {e}"))?
+    .map_err(|e| {
+        events::record(
+            &app,
+            &state.inner().clone(),
+            events::EventCategory::Configuracao,
+            "overlay-remover-perfil",
+            events::EventResult::Falha,
+            &e,
+            None,
+        );
+        e
+    })?;
+    events::record(
+        &app,
+        &state.inner().clone(),
+        events::EventCategory::Configuracao,
+        "overlay-remover-perfil",
+        events::EventResult::Concluido,
+        &resultado,
+        None,
+    );
+    Ok(resultado)
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -475,6 +569,8 @@ pub fn run() {
             overlay_estado,
             overlay_carregar,
             overlay_salvar,
+            overlay_perfis,
+            overlay_remover_perfil,
             instalar_wine,
             instalar_proton_versao,
             get_analysis

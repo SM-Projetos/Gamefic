@@ -15,9 +15,12 @@
 //! verificação da presença do binário `mangohud` (mesmo critério de
 //! `tools.rs`, via `which`, sem shell).
 //!
-//! Perfis: a API aceita um identificador de perfil para permitir perfis
-//! por jogo no futuro; nesta fase apenas `global` é suportado e qualquer
-//! outro perfil é recusado com mensagem explícita.
+//! Perfis: além do arquivo global, cada aplicativo pode ter uma
+//! configuração própria em `MangoHud/<nome-do-processo>.conf` — é a
+//! convenção do próprio MangoHud (o Vulkan/OpenGL layer busca a
+//! configuração do processo executando antes do global; linha comentada
+//! no perfil = campo herdado do global). Perfis válidos: 1–48 caracteres
+//! `a-z`, `0-9`, `_`, `-` (não alteram o global ao serem gravados).
 
 use serde::{Deserialize, Serialize};
 use std::fs;
@@ -99,6 +102,8 @@ pub struct Aparencia {
     pub cor_ram: String,
     /// layout horizontal (linha única)
     pub horizontal: bool,
+    /// título exibido no HUD (chave `custom_text`); None = não gerencia
+    pub titulo: Option<String>,
     /// versão compacta do HUD
     pub hud_compact: bool,
 }
@@ -116,6 +121,8 @@ impl Default for Aparencia {
             cor_vram: "AD64C1".to_string(),
             cor_ram: "C26693".to_string(),
             horizontal: false,
+            // título padrão do HUD: Gamefic (chave documentada `custom_text`)
+            titulo: Some("Gamefic".to_string()),
             hud_compact: false,
         }
     }
@@ -280,6 +287,26 @@ pub fn parse_conf(texto: &str) -> (ConfigMangoHud, usize) {
             }
             "horizontal" => cfg.aparencia.horizontal = ativa,
             "hud_compact" => cfg.aparencia.hud_compact = ativa,
+            "custom_text" => {
+                cfg.aparencia.titulo = if ativa {
+                    l.valor
+                        .map(|v| v.trim().to_string())
+                        .filter(|v| !v.is_empty())
+                } else {
+                    None
+                };
+            }
+            // variante centralizada (usada pelo GOverlay); entra no mesmo
+            // campo "título" na interface
+            "custom_text_center" => {
+                cfg.aparencia.titulo = if ativa {
+                    l.valor
+                        .map(|v| v.trim().to_string())
+                        .filter(|v| !v.is_empty())
+                } else {
+                    None
+                };
+            }
             "frame_timing" => cfg.graficos.frame_timing = ativa,
             "graphs" => {
                 if !ativa {
@@ -453,6 +480,10 @@ pub fn reconstruir_conf(original: Option<&str>, cfg: &ConfigMangoHud) -> String 
     gerenciadas.push(("cpu_color", format!("cpu_color={}", a.cor_cpu)));
     gerenciadas.push(("vram_color", format!("vram_color={}", a.cor_vram)));
     gerenciadas.push(("ram_color", format!("ram_color={}", a.cor_ram)));
+    gerenciadas.push(linha_titulo(
+        chave_titulo(original),
+        a.titulo.as_deref(),
+    ));
     gerenciadas.push((
         "horizontal",
         if a.horizontal {
@@ -560,12 +591,64 @@ pub fn base_config_dir() -> Result<PathBuf, String> {
 }
 
 pub fn conf_caminho(perfil: &str) -> Result<PathBuf, String> {
-    if perfil != PERFIL_GLOBAL {
-        return Err(format!(
-            "perfil '{perfil}' será suportado em etapa futura — nesta fase só 'global' está disponível"
-        ));
+    perfil_valido(perfil)?;
+    if perfil == PERFIL_GLOBAL {
+        return Ok(base_config_dir()?.join("MangoHud").join("MangoHud.conf"));
     }
-    Ok(base_config_dir()?.join("MangoHud").join("MangoHud.conf"))
+    // convenção upstream: arquivo por nome do processo executando
+    Ok(base_config_dir()?.join("MangoHud").join(format!("{perfil}.conf")))
+}
+
+fn conf_dir() -> Result<PathBuf, String> {
+    Ok(base_config_dir()?.join("MangoHud"))
+}
+
+/// perfis válidos: 1–48 caracteres de a-z/0-9/_/-; "global" é reservado ao
+/// arquivo global (o nome do perfil corresponde ao nome do executável do jogo)
+fn perfil_valido(perfil: &str) -> Result<(), String> {
+    if perfil == PERFIL_GLOBAL {
+        return Ok(());
+    }
+    let ok = !perfil.is_empty()
+        && perfil.len() <= 48
+        && perfil
+            .bytes()
+            .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'_' || b == b'-')
+        && !perfil.starts_with('-') // não pode virar opção (também evita paths)
+        && perfil != "mangohud.conf"; // reservado ao arquivo global
+    if ok {
+        Ok(())
+    } else {
+        Err(format!(
+            "nome de perfil '{perfil}' inválido — use 1–48 caracteres de a-z, 0-9, _ ou - (ex.: 'wine', 'steam')"
+        ))
+    }
+}
+
+/// perfis já presentes no diretório (arquivos `<nome>.conf` distintos do
+/// global); usado pela aba para preencher o seletor sem adivinhação
+pub fn perfis_existentes() -> Vec<String> {
+    let Ok(dir) = conf_dir() else {
+        return Vec::new();
+    };
+    let Ok(entradas) = fs::read_dir(&dir) else {
+        return Vec::new();
+    };
+    let mut nomes: Vec<String> = entradas
+        .filter_map(|e| e.ok())
+        .filter(|e| e.path().is_file())
+        .filter_map(|e| {
+            let nome = e.file_name().to_string_lossy().to_string();
+            let stem = nome.strip_suffix(".conf")?.to_string();
+            if stem == "MangoHud" {
+                // arquivo global não entra na lista de perfis
+                return None;
+            }
+            perfil_valido(&stem).ok().map(|_| stem)
+        })
+        .collect();
+    nomes.sort();
+    nomes
 }
 
 /// MangoHud presente? (binário da distribuição; mesmo critério de tools.rs,
@@ -602,40 +685,460 @@ pub fn estado(perfil: &str) -> Estado {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Carregado {
+    /// valores resolvidos: explicitos do perfil sobrepõem; o ausente herda o global
     pub config: ConfigMangoHud,
     /// número de opções avançadas preservadas (não gerenciadas)
     pub preservadas: usize,
+    /// arquivo `<perfil>.conf` já existe? (false = visão é só a do global)
+    pub perfil_existe: bool,
+    /// quantos campos gerenciados ficaram herdados do global (o perfil
+    /// não tem linha para eles)
+    pub campos_herdados: usize,
+}
+
+fn eh_gerenciada(chave: &str) -> bool {
+    matches!(
+        chave,
+        "fps" | "frametime" | "cpu_stats" | "gpu_stats" | "cpu_temp" | "gpu_temp"
+            | "vram" | "ram" | "core_load" | "cpu_power" | "gpu_power" | "gpu_core_clock"
+            | "gpu_mem_clock" | "throttling_status" | "no_display" | "position" | "font_size"
+            | "background_alpha" | "text_color" | "gpu_color" | "cpu_color" | "vram_color"
+            | "ram_color" | "horizontal" | "hud_compact" | "frame_timing" | "graphs"
+            | "toggle_hud" | "toggle_hud_position" | "toggle_fps_limit" | "toggle_logging"
+            | "reload_cfg" | "custom_text" | "custom_text_center"
+    )
+}
+
+fn eh_bool(chave: &str) -> bool {
+    matches!(
+        chave,
+        "fps" | "frametime" | "cpu_stats" | "gpu_stats" | "cpu_temp" | "gpu_temp" | "vram"
+            | "ram" | "core_load" | "cpu_power" | "gpu_power" | "gpu_core_clock"
+            | "gpu_mem_clock" | "throttling_status" | "no_display" | "horizontal"
+            | "hud_compact" | "frame_timing"
+    )
+}
+
+/// opções DEFINIDAS no texto (linhas livres): chaves gerenciadas só;
+/// comentadas/ausentes = herdadas do global (semântica upstream do
+/// perfil por processo). Toggles com `=0` são off explícito (o gabarito
+/// do MangoHud documenta `chave=0` para desativar)
+fn definidas_no_texto(texto: &str) -> std::collections::HashMap<String, String> {
+    let mut mapa = std::collections::HashMap::new();
+    for linha in texto.lines() {
+        let Some(l) = linha_conf(linha) else {
+            continue;
+        };
+        if l.comentada {
+            // comentada = herdada do global (não é um override)
+            continue;
+        }
+        if !eh_gerenciada(l.chave) {
+            continue;
+        }
+        if eh_bool(l.chave) {
+            let valor = match l.valor {
+                Some(v) if v == "0" || v.eq_ignore_ascii_case("false") => "0".to_string(),
+                _ => "1".to_string(),
+            };
+            mapa.insert(l.chave.to_string(), valor);
+        } else if let Some(v) = l.valor {
+            mapa.insert(l.chave.to_string(), v.to_string());
+        }
+    }
+    mapa
+}
+
+
+/// aplica as definições de perfil (mapa) sobre uma base (global resolvida)
+/// — só a instância retorna valores efetivos
+fn resolver(base: &ConfigMangoHud, definidos: &std::collections::HashMap<String, String>) -> (ConfigMangoHud, usize) {
+    let mut cfg = base.clone();
+    for (chave, valor) in definidos {
+        match chave.as_str() {
+            "fps" => cfg.metricas.fps = valor == "1",
+            "frametime" => cfg.metricas.frametime = valor == "1",
+            "cpu_stats" => cfg.metricas.cpu_stats = valor == "1",
+            "gpu_stats" => cfg.metricas.gpu_stats = valor == "1",
+            "cpu_temp" => cfg.metricas.cpu_temp = valor == "1",
+            "gpu_temp" => cfg.metricas.gpu_temp = valor == "1",
+            "vram" => cfg.metricas.vram = valor == "1",
+            "ram" => cfg.metricas.ram = valor == "1",
+            "core_load" => cfg.metricas.core_load = valor == "1",
+            "cpu_power" => cfg.metricas.cpu_power = valor == "1",
+            "gpu_power" => cfg.metricas.gpu_power = valor == "1",
+            "gpu_core_clock" => cfg.metricas.gpu_core_clock = valor == "1",
+            "gpu_mem_clock" => cfg.metricas.gpu_mem_clock = valor == "1",
+            "throttling_status" => cfg.metricas.throttling_status = valor == "1",
+            "no_display" => cfg.metricas.no_display = valor == "1",
+            "horizontal" => cfg.aparencia.horizontal = valor == "1",
+            "hud_compact" => cfg.aparencia.hud_compact = valor == "1",
+            "custom_text" => {
+                let t = valor.trim();
+                cfg.aparencia.titulo = if t.is_empty() { None } else { Some(t.to_string()) };
+            }
+            "custom_text_center" => {
+                let t = valor.trim();
+                cfg.aparencia.titulo = if t.is_empty() { None } else { Some(t.to_string()) };
+            }
+            "frame_timing" => cfg.graficos.frame_timing = valor == "1",
+            "position" => cfg.aparencia.posicao = valor.clone(),
+            "font_size" => if let Ok(n) = valor.parse() { cfg.aparencia.tamanho_fonte = n; },
+            "background_alpha" => if let Ok(n) = valor.parse() { cfg.aparencia.alpha_fundo = n; },
+            "text_color" => cfg.aparencia.cor_texto = valor.clone(),
+            "gpu_color" => cfg.aparencia.cor_gpu = valor.clone(),
+            "cpu_color" => cfg.aparencia.cor_cpu = valor.clone(),
+            "vram_color" => cfg.aparencia.cor_vram = valor.clone(),
+            "ram_color" => cfg.aparencia.cor_ram = valor.clone(),
+            "graphs" => {
+                cfg.graficos.graficos = valor
+                    .split(',')
+                    .map(str::trim)
+                    .filter(|s| !s.is_empty())
+                    .map(str::to_string)
+                    .collect();
+            }
+            "toggle_hud" => cfg.atalhos.toggle_hud = Some(valor.trim().to_string()),
+            "toggle_hud_position" => cfg.atalhos.toggle_hud_position = Some(valor.trim().to_string()),
+            "toggle_fps_limit" => cfg.atalhos.toggle_fps_limit = Some(valor.trim().to_string()),
+            "toggle_logging" => cfg.atalhos.toggle_logging = Some(valor.trim().to_string()),
+            "reload_cfg" => cfg.atalhos.reload_cfg = Some(valor.trim().to_string()),
+            _ => {}
+        }
+    }
+    let herdadas = CHAVES_TODAS
+        .iter()
+        .filter(|k| !definidos.contains_key(**k))
+        .count();
+    (cfg, herdadas)
+}
+
+/// todas as chaves gerenciadas (contagem de herança)
+const CHAVES_TODAS: &[&str] = &[
+    "fps", "frametime", "cpu_stats", "gpu_stats", "cpu_temp", "gpu_temp", "vram", "ram",
+    "core_load", "cpu_power", "gpu_power", "gpu_core_clock", "gpu_mem_clock", "throttling_status",
+    "no_display", "position", "font_size", "background_alpha", "text_color", "gpu_color",
+    "cpu_color", "vram_color", "ram_color", "horizontal", "hud_compact", "frame_timing", "graphs",
+    "toggle_hud", "toggle_hud_position", "toggle_fps_limit", "toggle_logging", "reload_cfg",
+    "custom_text", "custom_text_center",
+];
+
+/// texto do conf correlato resolvido: global + defaults (o que o perfil herda)
+fn global_resolvida() -> (ConfigMangoHud, String) {
+    let texto = fs::read_to_string(conf_caminho(PERFIL_GLOBAL).unwrap_or_default()).unwrap_or_default();
+    let (cfg, _) = parse_conf(&texto);
+    (cfg, texto)
 }
 
 /// leitura + parse; conf ausente = defaults do gabarito (não grava nada)
+/// leitura com herança: global resolvido primeiro; o perfil (quando existe)
+/// sobrepõe campo a campo; linha ausente/comentada = herda. Em modo global
+/// o resultado é o comportamento da Fase 1 (comentada = desligada).
 pub fn carregar(perfil: &str) -> Result<Carregado, String> {
+    perfil_valido(perfil)?;
+    if perfil == PERFIL_GLOBAL {
+        let caminho = conf_caminho(perfil)?;
+        match fs::read_to_string(&caminho) {
+            Ok(texto) => {
+                let (config, preservadas) = parse_conf(&texto);
+                return Ok(Carregado {
+                    config,
+                    preservadas,
+                    perfil_existe: true,
+                    campos_herdados: 0,
+                });
+            }
+            Err(_) => {
+                return Ok(Carregado {
+                    config: ConfigMangoHud::default(),
+                    preservadas: 0,
+                    perfil_existe: false,
+                    campos_herdados: 0,
+                });
+            }
+        }
+    }
+    let (base, _) = global_resolvida();
     let caminho = conf_caminho(perfil)?;
     match fs::read_to_string(&caminho) {
         Ok(texto) => {
-            let (config, preservadas) = parse_conf(&texto);
+            let definidos = definidas_no_texto(&texto);
+            let (config, campos_herdados) = resolver(&base, &definidos);
+            let preservadas = texto
+                .lines()
+                .filter_map(linha_conf)
+                .filter(|l| !eh_gerenciada(l.chave))
+                .count();
             Ok(Carregado {
                 config,
                 preservadas,
+                perfil_existe: true,
+                campos_herdados,
             })
         }
-        Err(_) => Ok(Carregado {
-            config: ConfigMangoHud::default(),
-            preservadas: 0,
-        }),
+        Err(_) => {
+            // arquivo ainda não existe: visão editável do estado global
+            Ok(Carregado {
+                config: base,
+                preservadas: 0,
+                perfil_existe: false,
+                campos_herdados: CHAVES_TODAS.len(),
+            })
+        }
     }
 }
 
-/// validação + gravação (cria pastas; não executa nada externo)
+/// validação + gravação (cria pastas; não executa nada externo).
+/// No global, o comportamento é o da Fase 1 (todas as linhas explícitas).
+/// Em um perfil, campos iguais ao global ficam comentados (herdam); os
+/// divergentes vão explícitos — toggle desligado vira `chave=0`, sintaxe
+/// documentada pelo gabarito do MangoHud para desativar. O arquivo global
+/// NUNCA é alterado ao salvar um perfil (§ isolamento).
 pub fn salvar(perfil: &str, cfg: &ConfigMangoHud) -> Result<String, String> {
     validar(cfg)?;
     let caminho = conf_caminho(perfil)?;
     let atual = fs::read_to_string(&caminho).ok();
-    let texto = reconstruir_conf(atual.as_deref(), cfg);
+    let texto = if perfil == PERFIL_GLOBAL {
+        reconstruir_conf(atual.as_deref(), cfg)
+    } else {
+        let (base, _) = global_resolvida();
+        reconstruir_perfil(atual.as_deref(), cfg, &base)
+    };
     if let Some(dir) = caminho.parent() {
         fs::create_dir_all(dir).map_err(|e| format!("falha ao criar {dir:?}: {e}"))?;
     }
     fs::write(&caminho, &texto).map_err(|e| format!("falha ao gravar {caminho:?}: {e}"))?;
-    Ok(format!("Configuração gravada em {}", caminho.display()))
+    if perfil == PERFIL_GLOBAL {
+        Ok(format!("Configuração gravada em {}", caminho.display()))
+    } else {
+        Ok(format!(
+            "Perfil '{perfil}' gravado em {}; campos iguais ao global ficam comentados e herdam o global",
+            caminho.display()
+        ))
+    }
+}
+
+/// remove o ARQUIVO de um perfil (nunca o global); remover um perfil que
+/// já não existe é inofensivo e volta a mensagem correspondente
+pub fn remover(perfil: &str) -> Result<String, String> {
+    perfil_valido(perfil)?;
+    if perfil == PERFIL_GLOBAL {
+        return Err(
+            "o arquivo global não pode ser removido por aqui — use a própria aba para editá-lo"
+                .to_string(),
+        );
+    }
+    let caminho = conf_caminho(perfil)?;
+    match fs::remove_file(&caminho) {
+        Ok(()) => Ok(format!(
+            "Perfil '{perfil}' removido: jogos com esse nome de processo voltam a usar o global"
+        )),
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
+            Ok(format!("Perfil '{perfil}' já não existia — nada a remover"))
+        }
+        Err(e) => Err(format!("falha ao remover {caminho:?}: {e}")),
+    }
+}
+
+/// variante de título usada pelo arquivo original: as duas chaves
+/// (`custom_text` e `custom_text_center`) alimentam o mesmo campo na
+/// interface; a gravação reescreve a chave que o arquivo usa para não
+/// duplicar o título no HUD nem abandonar a linha legada
+fn chave_titulo(original: Option<&str>) -> &'static str {
+    let usa_centro = original
+        .map(|t| {
+            t.lines()
+                .any(|l| linha_conf(l).is_some_and(|c| c.chave == "custom_text_center"))
+        })
+        .unwrap_or(false);
+    if usa_centro {
+        "custom_text_center"
+    } else {
+        "custom_text"
+    }
+}
+
+fn linha_titulo(chave: &'static str, titulo: Option<&str>) -> (&'static str, String) {
+    if titulo.is_some_and(|t| !t.trim().is_empty()) {
+        (fixa(chave), format!("{chave}={}", titulo.unwrap_or_default()))
+    } else {
+        (fixa(chave), format!("#{chave}"))
+    }
+}
+
+/// reescrita de um ARQUIVO DE PERFIL: linha comentada = herdada do global;
+/// divergências vão explícitas (ver salvar). Linhas desconhecidas do
+/// o global não é modificado pela escrita de um perfil
+pub fn reconstruir_perfil(
+    original: Option<&str>,
+    cfg: &ConfigMangoHud,
+    base: &ConfigMangoHud,
+) -> String {
+    let mut gerenciadas: Vec<(&'static str, String)> = Vec::new();
+    let m = &cfg.metricas;
+    let b = &base.metricas;
+    for (chave, valor, referencia) in [
+        ("fps", m.fps, b.fps),
+        ("frametime", m.frametime, b.frametime),
+        ("cpu_stats", m.cpu_stats, b.cpu_stats),
+        ("gpu_stats", m.gpu_stats, b.gpu_stats),
+        ("cpu_temp", m.cpu_temp, b.cpu_temp),
+        ("gpu_temp", m.gpu_temp, b.gpu_temp),
+        ("vram", m.vram, b.vram),
+        ("ram", m.ram, b.ram),
+        ("core_load", m.core_load, b.core_load),
+        ("cpu_power", m.cpu_power, b.cpu_power),
+        ("gpu_power", m.gpu_power, b.gpu_power),
+        ("gpu_core_clock", m.gpu_core_clock, b.gpu_core_clock),
+        ("gpu_mem_clock", m.gpu_mem_clock, b.gpu_mem_clock),
+        ("throttling_status", m.throttling_status, b.throttling_status),
+        ("no_display", m.no_display, b.no_display),
+    ] {
+        let linha = if valor == referencia {
+            format!("#{chave}")
+        } else if valor {
+            chave.to_string()
+        } else {
+            // sintaxe documentada pelo gabarito: chave=0 desativa
+            format!("{chave}=0")
+        };
+        gerenciadas.push((chave, linha));
+    }
+    gerenciadas.extend(linhas_aparencia(
+        &cfg.aparencia,
+        &base.aparencia,
+        chave_titulo(original),
+    ));
+    {
+        let (g, r) = (&cfg.graficos, &base.graficos);
+        gerenciadas.push((
+            "frame_timing",
+            if g.frame_timing == r.frame_timing {
+                "#frame_timing".into()
+            } else if g.frame_timing {
+                "frame_timing".into()
+            } else {
+                "frame_timing=0".into()
+            },
+        ));
+        if g.graficos == r.graficos {
+            gerenciadas.push(("graphs", "#graphs".into()));
+        } else if g.graficos.is_empty() {
+            gerenciadas.push(("graphs", "graphs=0".into()));
+        } else {
+            gerenciadas.push(("graphs", format!("graphs={}", g.graficos.join(","))));
+        }
+    }
+    gerenciadas.extend(linhas_atalhos(&cfg.atalhos, &base.atalhos));
+
+    let chaves: Vec<&str> = gerenciadas.iter().map(|(k, _)| *k).collect();
+    let mut corpo: Vec<&str> = Vec::new();
+    match original {
+        Some(texto) => {
+            for linha in texto.lines() {
+                let t = linha.trim();
+                if t == MARCA_INI || t == MARCA_FIM {
+                    continue;
+                }
+                if let Some(l) = linha_conf(linha) {
+                    if chaves.contains(&l.chave) {
+                        continue;
+                    }
+                }
+                corpo.push(linha);
+            }
+            while corpo.last().is_some_and(|l| l.trim().is_empty()) {
+                corpo.pop();
+            }
+        }
+        None => {
+            corpo.push(
+                "### MangoHud.conf — perfil de jogo editado pelo Gamefic (aba Overlay)",
+            );
+            corpo
+                .push("### Linhas comentadas herdam o arquivo global; divergentes ficam explícitas.");
+            corpo.push("### Linhas fora do bloco abaixo são preservadas exatamente como estão.");
+        }
+    }
+
+    let mut saida = String::new();
+    saida.push_str(&corpo.join("\n"));
+    saida.push_str("\n\n");
+    saida.push_str(MARCA_INI);
+    saida.push('\n');
+    for (_, linha) in gerenciadas {
+        saida.push_str(&linha);
+        saida.push('\n');
+    }
+    saida.push_str(MARCA_FIM);
+    saida.push('\n');
+    saida
+}
+
+fn linhas_aparencia(a: &Aparencia, r: &Aparencia, titulo_key: &'static str) -> Vec<(&'static str, String)> {
+    let pares: Vec<(&'static str, String, String)> = vec![
+        ("position", a.posicao.clone(), r.posicao.clone()),
+        ("font_size", a.tamanho_fonte.to_string(), r.tamanho_fonte.to_string()),
+        (
+            "background_alpha",
+            formato_alpha(a.alpha_fundo),
+            formato_alpha(r.alpha_fundo),
+        ),
+        ("text_color", a.cor_texto.clone(), r.cor_texto.clone()),
+        ("gpu_color", a.cor_gpu.clone(), r.cor_gpu.clone()),
+        ("cpu_color", a.cor_cpu.clone(), r.cor_cpu.clone()),
+        ("vram_color", a.cor_vram.clone(), r.cor_vram.clone()),
+        ("ram_color", a.cor_ram.clone(), r.cor_ram.clone()),
+        (
+            titulo_key,
+            a.titulo.clone().unwrap_or_default(),
+            r.titulo.clone().unwrap_or_default(),
+        ),
+    ];
+    let mut linhas: Vec<(&'static str, String)> = pares
+        .into_iter()
+        .map(|(k, v, rv)| {
+            if v == rv {
+                (fixa(k), format!("#{k}"))
+            } else {
+                (fixa(k), format!("{k}={v}"))
+            }
+        })
+        .collect();
+    for (k, valor, referencia) in [
+        ("horizontal", a.horizontal, r.horizontal),
+        ("hud_compact", a.hud_compact, r.hud_compact),
+    ] {
+        let linha = if valor == referencia {
+            format!("#{k}")
+        } else if valor {
+            k.to_string()
+        } else {
+            format!("{k}=0")
+        };
+        linhas.push((fixa(k), linha));
+    }
+    linhas
+}
+
+/// as chaves aqui são fixas do conjunto gerenciado; devolve a string estática
+fn fixa(k: &str) -> &'static str {
+    CHAVES_TODAS.iter().find(|c| **c == k).copied().unwrap_or("")
+}
+
+fn linhas_atalhos(a: &Atalhos, r: &Atalhos) -> Vec<(&'static str, String)> {
+    chaves_atalho(a)
+        .into_iter()
+        .zip(chaves_atalho(r))
+        .map(|((k, av), (_, rv))| {
+            if av == rv || av.as_deref().is_none_or(|t| t.trim().is_empty()) {
+                // igual ao global OU vazio (não gerenciar): herda
+                (k, format!("#{k}"))
+            } else {
+                (k, format!("{k}={}", av.unwrap_or_default()))
+            }
+        })
+        .collect()
 }
 
 // ---------------------------------------------------------------------------
@@ -740,6 +1243,7 @@ mod testes {
 
     #[test]
     fn salvar_e_reler_em_diretorio_isolado() {
+        let _guardo = AMBIENTE.lock().unwrap();
         let dir = std::env::temp_dir().join("gamefic-test-mangohud");
         let _ = std::fs::remove_dir_all(&dir);
         // edition 2024: set_var é unsafe; em testes é seguro pois nenhum
@@ -758,11 +1262,201 @@ mod testes {
     }
 
     #[test]
-    fn perfis_fora_da_fase_sao_recusados() {
-        assert!(conf_caminho(PERFIL_GLOBAL).is_ok());
-        match conf_caminho("meu-jogo") {
-            Err(e) => assert!(e.contains("etapa futura")),
-            Ok(_) => panic!("perfil individual não pode ser aceito nesta fase"),
+    fn titulo_legado_do_goverlay_e_rescrito_mantendo_a_variante() {
+        let _guardo = AMBIENTE.lock().unwrap();
+        let dir = isolado("titulo");
+        // arquivo legado escrito pelo GOverlay: título centralizado
+        let caminho = conf_caminho(PERFIL_GLOBAL).unwrap();
+        fs::create_dir_all(caminho.parent().unwrap()).unwrap();
+        fs::write(
+            &caminho,
+            "################### File Generated by Goverlay 1.9.4 stable ###################\n\ncustom_text_center=Goverlay\nposition=top-left\n",
+        )
+        .unwrap();
+        let lido = carregar(PERFIL_GLOBAL).unwrap();
+        assert_eq!(
+            lido.config.aparencia.titulo.as_deref(),
+            Some("Goverlay"),
+            "título lido da variante centralizada"
+        );
+
+        // gravação pelo Gamefic substitui o valor na MESMA variante
+        let mut cfg = ConfigMangoHud::default();
+        cfg.aparencia.titulo = Some("GAMEFIC".to_string());
+        salvar(PERFIL_GLOBAL, &cfg).expect("regravação");
+        let texto = fs::read_to_string(&caminho).unwrap();
+        assert!(texto.contains("custom_text_center=GAMEFIC"), "{texto}");
+        assert!(
+            !texto.lines().any(|l| l.trim_start().starts_with("custom_text_center=Goverlay")),
+            "valor legado substituído: {texto}"
+        );
+        assert!(
+            !texto.lines().any(|l| l.trim_start().starts_with("custom_text=")),
+            "sem duplicar variante: {texto}"
+        );
+        let depois = carregar(PERFIL_GLOBAL).unwrap();
+        assert_eq!(depois.config.aparencia.titulo.as_deref(), Some("GAMEFIC"));
+        limpa(&dir);
+    }
+
+    #[test]
+    fn nomes_invalidos_de_perfil_sao_recusados() {
+        // Fase 3: perfis individuais são válidos, MAS o nome é restrito
+        // (evita escape de caminho e nomes que colidem com o global)
+        for invalido in ["", "Nome Maior", "a/b", "../escape", "ab.", "Game", "perfis própios"] {
+            assert!(conf_caminho(invalido).is_err(), "deve recusar: {invalido}");
         }
+        assert!(conf_caminho(PERFIL_GLOBAL).is_ok());
+        assert!(conf_caminho("wine").is_ok());
+        assert!(conf_caminho("steam-native_2").is_ok());
+    }
+
+    // ---------- Fase 3: isolamento e herança ----------
+    // testes dependem do diretório isolado; serializados para não trocar
+    // a variável de ambiente entre si
+    static AMBIENTE: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
+    fn isolado(tag: &str) -> std::path::PathBuf {
+        let dir = std::env::temp_dir().join(format!("gamefic-f3-{tag}"));
+        let _ = std::fs::remove_dir_all(&dir);
+        unsafe { std::env::set_var("GAMEFIC_TEST_CONFIG_ROOT", &dir) };
+        dir
+    }
+
+    fn limpa(dir: &std::path::Path) {
+        unsafe { std::env::set_var("GAMEFIC_TEST_CONFIG_ROOT", "") };
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn perfil_inexistente_devolve_o_global_sem_criar_arquivo() {
+        let _guardo = AMBIENTE.lock().unwrap();
+        let dir = isolado("inexistente");
+        let cfg_global = ConfigMangoHud::default();
+        salvar(PERFIL_GLOBAL, &cfg_global).expect("global gravado");
+        let global_caminho = conf_caminho(PERFIL_GLOBAL).unwrap();
+
+        let carreg = carregar("csgo").expect("carregar sem perfil");
+        assert!(!carreg.perfil_existe);
+        assert_eq!(carreg.config, cfg_global);
+        assert_eq!(carreg.campos_herdados, CHAVES_TODAS.len());
+        // nenhum arquivo de perfil foi criado pela leitura
+        assert!(!conf_caminho("csgo").unwrap().exists());
+        assert!(global_caminho.exists());
+        limpa(&dir);
+    }
+
+    #[test]
+    fn salvar_perfil_não_altera_o_arquivo_global() {
+        let _guardo = AMBIENTE.lock().unwrap();
+        let dir = isolado("isolamento");
+        let mut g = ConfigMangoHud::default();
+        g.aparencia.posicao = "top-right".into();
+        salvar(PERFIL_GLOBAL, &g).expect("global");
+
+        let mut p = ConfigMangoHud::default();
+        p.aparencia.posicao = "bottom-center".into();
+        p.aparencia.tamanho_fonte = 40;
+        salvar("wine", &p).expect("perfil");
+
+        let texto_global = std::fs::read_to_string(conf_caminho(PERFIL_GLOBAL).unwrap()).unwrap();
+        assert!(
+            !texto_global.contains("bottom-center"),
+            "global intocado: {texto_global}"
+        );
+        let global_lido = carregar(PERFIL_GLOBAL).unwrap();
+        assert_eq!(global_lido.config.aparencia.posicao, "top-right");
+
+        // perfil tem só as divergências explícitas
+        let texto_perfil = std::fs::read_to_string(conf_caminho("wine").unwrap()).unwrap();
+        assert!(texto_perfil.contains("position=bottom-center"));
+        assert!(texto_perfil.contains("font_size=40"));
+        assert!(texto_perfil.contains("#fps"), "igual ao global = herda: {texto_perfil}");
+        limpa(&dir);
+    }
+
+    #[test]
+    fn herança_campo_a_campo_e_fallback_global() {
+        let _guardo = AMBIENTE.lock().unwrap();
+        let dir = isolado("heranca");
+        // global: gpu_temp LIGADO, position top-right
+        let mut g = ConfigMangoHud::default();
+        g.metricas.gpu_temp = true;
+        g.aparencia.posicao = "top-right".into();
+        salvar(PERFIL_GLOBAL, &g).expect("global");
+
+        // perfil desativa o que o global liga (toggle off explícito);
+        // position fica inalterado (= global) para testar a herança
+        let mut p = ConfigMangoHud::default();
+        p.metricas.gpu_temp = false; // diverge do global ligado
+        p.aparencia.posicao = "top-right".into(); // igual ao global: herda
+        salvar("dolphin", &p).expect("perfil");
+
+        let lido = carregar("dolphin").unwrap();
+        // herdado do global
+        assert_eq!(lido.config.aparencia.posicao, "top-right");
+        // divergente no perfil
+        assert!(!lido.config.metricas.gpu_temp);
+        assert!(lido.perfil_existe);
+        let texto = std::fs::read_to_string(conf_caminho("dolphin").unwrap()).unwrap();
+        assert!(texto.contains("gpu_temp=0"), "off explícito: {texto}");
+        assert!(texto.contains("#position") && texto.lines().all(|l| !l.starts_with("position")), "position herdado: {texto}");
+
+        // mudar o global DEPOIS propaga para campos herdados
+        let mut g2 = ConfigMangoHud::default();
+        g2.metricas.gpu_temp = true;
+        g2.aparencia.posicao = "middle-center".into();
+        g2.metricas.fps = false; // novo global desliga o fps
+        salvar(PERFIL_GLOBAL, &g2).expect("global regravado");
+        let dps = carregar("dolphin").unwrap();
+        assert_eq!(
+            dps.config.aparencia.posicao,
+            "middle-center",
+            "herda mudança do global"
+        );
+        assert!(
+            !dps.config.metricas.fps,
+            "fps herdado do novo global (desligado)"
+        );
+        assert!(
+            !dps.config.metricas.gpu_temp,
+            "divergência do perfil se mantém"
+        );
+        limpa(&dir);
+    }
+
+    #[test]
+    fn perfis_existentes_lista_e_remover() {
+        let _guardo = AMBIENTE.lock().unwrap();
+        let dir = isolado("listagem");
+        let mut p = ConfigMangoHud::default();
+        p.aparencia.tamanho_fonte = 30;
+        salvar("retroarch", &p).expect("1");
+        salvar("steam", &p).expect("2");
+        assert_eq!(
+            perfis_existentes(),
+            vec!["retroarch".to_string(), "steam".to_string()]
+        );
+        let msg = remover("steam").expect("remoção");
+        assert!(msg.contains("removido"));
+        assert_eq!(perfis_existentes(), vec!["retroarch".to_string()]);
+        // remover de novo é inofensivo
+        assert!(remover("steam").is_ok());
+        // global NUNCA sai por aqui
+        assert!(remover(PERFIL_GLOBAL).is_err());
+        // nome inválido nunca passa
+        assert!(remover("../x").is_err());
+        limpa(&dir);
+    }
+
+    #[test]
+    fn validacao_continua_no_perfil() {
+        let _guardo = AMBIENTE.lock().unwrap();
+        let dir = isolado("validar");
+        let mut p = ConfigMangoHud::default();
+        p.aparencia.tamanho_fonte = 999;
+        assert!(salvar("wine", &p).is_err(), "validação da Fase 1 vale no perfil");
+        assert!(!conf_caminho("wine").unwrap().exists(), "falha não grava arquivo");
+        limpa(&dir);
     }
 }

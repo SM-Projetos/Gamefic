@@ -33,6 +33,7 @@ interface Aparencia {
   corVram: string;
   corRam: string;
   horizontal: boolean;
+  titulo: string | null;
   hudCompact: boolean;
 }
 interface Graficos {
@@ -55,6 +56,10 @@ interface ConfigMangoHud {
 interface Carregado {
   config: ConfigMangoHud;
   preservadas: number;
+  // Fase 3: o arquivo `<perfil>.conf` existe? e quantos campos herdam
+  // do global (linhas comentadas = herdam a preferência global)
+  perfilExiste: boolean;
+  camposHerdados: number;
 }
 interface Estado {
   instalado: boolean;
@@ -110,9 +115,41 @@ function esc(t: string): string {
 // estado em memória: usado também por apps.ts ao iniciar um jogo
 let configBase: ConfigMangoHud | null = null;
 let overlayAtivoAgora = false;
+// perfil sendo editado na aba ("global" = arquivo comum do MangoHud,
+// válido para todos os jogos; perfil individual = arquivo por processo)
+let perfilAtual = "global";
+
+const NOME_PERFIL_RE = /^[a-z0-9_-]{1,48}$/;
 
 export function overlayAtivo(): boolean {
   return overlayAtivoAgora;
+}
+
+// ---------- seção de perfis (Fase 3) ----------
+function perfisHtml(perfis: string[], dados: Carregado): string {
+  const opcoes = ["global", ...perfis.filter((p) => p !== "global")]
+    .map(
+      (p) => `<option value="${esc(p)}" ${p === perfilAtual ? "selected" : ""}>${p === "global" ? "global — todos os jogos" : p}</option>`,
+    )
+    .join("");
+  const herdaTexto =
+    perfilAtual === "global"
+      ? "Este é o arquivo global: vale para todos os jogos que não tenham perfil próprio com o mesmo nome de processo."
+      : `${dados.camposHerdados} campo(s) herdam o global (linhas comentadas no arquivo) — mudanças no global se propagam para esses campos. Campos divergentes ficam explícitos no perfil.`;
+  return `
+    <h2 class="page__section-title">Perfil</h2>
+    <div class="field" style="max-width:30rem">
+      <label class="field__label" for="ov-perfil">Configuração editada</label>
+      <select class="field__control" id="ov-perfil">${opcoes}</select>
+      <p class="muted">O perfil é escolhido pelo MangoHud pelo nome do processo do jogo (ex.: <span class="num">wine</span>, o nome do executável do emulador ou do jogo). Um perfil nunca altera o arquivo global.</p>
+      <div style="display:flex; gap:var(--space-2); margin-top:var(--space-2)">
+        <input type="text" class="field__control" id="ov-perfil-novo" placeholder="novo perfil (a-z, 0-9, _ ou -)" maxlength="48" style="flex:1">
+        <button class="btn btn--ghost" id="ov-perfil-criar" type="button">Editar novo</button>
+        ${dados.perfilExiste && perfilAtual !== "global" ? `<button class="btn btn--ghost" id="ov-perfil-remover" type="button">Remover perfil</button>` : ""}
+      </div>
+      <p class="muted" style="margin-top:var(--space-2)">${esc(herdaTexto)}</p>
+      ${perfilAtual !== "global" && !dados.perfilExiste ? `<p class="muted">Este perfil ainda não está gravado — use “Salvar configuração” para criá-lo.</p>` : ""}
+    </div>`;
 }
 
 // ---------- construção do formulário ----------
@@ -152,6 +189,11 @@ function aparenciaHtml(a: Aparencia): string {
         <select class="field__control" id="ova-posicao">
           ${POSICOES.map(([v, r]) => `<option value="${v}" ${a.posicao === v ? "selected" : ""}>${esc(r)}</option>`).join("")}
         </select>
+      </div>
+      <div class="field">
+        <label class="field__label" for="ova-titulo">Título exibido no HUD</label>
+        <input type="text" class="field__control" id="ova-titulo" value="${esc(a.titulo ?? "")}" placeholder="(sem título)">
+        <p class="muted">Texto fixo exibido pelo MangoHud dentro do jogo (chave <span class="num">custom_text</span>); vazio = sem título.</p>
       </div>
       <div class="field">
         <label class="field__label" for="ova-fonte">Tamanho da fonte (8–128)</label>
@@ -226,6 +268,10 @@ function lerFormulario(): ConfigMangoHud {
   base.aparencia.corCpu = txt("ova-cor-cpu").replace(/^#/, "").toUpperCase();
   base.aparencia.corVram = txt("ova-cor-vram").replace(/^#/, "").toUpperCase();
   base.aparencia.corRam = txt("ova-cor-ram").replace(/^#/, "").toUpperCase();
+  {
+    const t = txt("ova-titulo").trim();
+    base.aparencia.titulo = t.length > 0 ? t : null;
+  }
   base.aparencia.horizontal = bool("ova-horizontal");
   base.aparencia.hudCompact = bool("ova-hud-compact");
   base.graficos.frame_timing = bool("ovg-frame-timing");
@@ -250,7 +296,10 @@ async function salvarConfig(): Promise<void> {
   try {
     if (botao instanceof HTMLButtonElement) botao.disabled = true;
     setStatus("Validando e gravando…", "ok");
-    const msg = await invoke<string>("overlay_salvar", { config: lerFormulario() });
+    const msg = await invoke<string>("overlay_salvar", {
+      perfil: perfilAtual,
+      config: lerFormulario(),
+    });
     const estado = await invoke<Estado>("overlay_estado", {});
     statusEstado(estado, true);
     setStatus(msg, "ok");
@@ -314,9 +363,15 @@ export async function initOverlay(): Promise<void> {
     return;
   }
 
+  await montarOverlay(conteudo, estado);
+}
+
+// monta (ou remonta) o formulário com o perfil selecionado no momento;
+// chamada na abertura da aba e a cada troca/criação/remoção de perfil
+async function montarOverlay(conteudo: HTMLElement, estado: Estado): Promise<void> {
   let dados: Carregado;
   try {
-    dados = await invoke<Carregado>("overlay_carregar", {});
+    dados = await invoke<Carregado>("overlay_carregar", { perfil: perfilAtual });
   } catch (e) {
     conteudo.innerHTML = `<div class="card"><p class="field__status">Falha ao ler a configuração: ${esc(String(e))}</p></div>`;
     return;
@@ -326,12 +381,25 @@ export async function initOverlay(): Promise<void> {
   const prefs = await loadPrefs();
   overlayAtivoAgora = prefs.mangohudOverlay === true;
 
+  let perfis: string[] = [];
+  try {
+    perfis = await invoke<string[]>("overlay_perfis");
+  } catch (e) {
+    console.error("Falha ao listar perfis do MangoHud:", e);
+  }
+
+  const caminhoGravacao =
+    perfilAtual === "global"
+      ? estado.confCaminho
+      : `o arquivo ${perfilAtual}.conf na pasta do MangoHud`;
+
   conteudo.innerHTML = `
     <div class="card" style="margin-bottom:var(--space-4)">
       <span class="pill pill--info" id="ov-estado">MangoHud</span>
       <span class="muted">${dados.preservadas > 0 ? `${dados.preservadas} opção(ões) avançadas fora do conjunto gerenciado serão preservadas no arquivo.` : "Opções fora do conjunto gerenciado, se existirem, são preservadas."}</span>
       <div class="field__status" id="ov-status" style="margin-top:var(--space-2)"></div>
     </div>
+    ${perfisHtml(perfis, dados)}
     ${secaoAtivacaoHtml(prefs)}
     ${metricasHtml(dados.config.metricas)}
     ${aparenciaHtml(dados.config.aparencia)}
@@ -339,7 +407,7 @@ export async function initOverlay(): Promise<void> {
     ${atalhosHtml(dados.config.atalhos)}
     <div style="margin-top:var(--space-4); display:flex; gap:var(--space-3); align-items:center">
       <button class="btn btn--primary" id="ov-salvar" type="button">Salvar configuração</button>
-      <span class="muted">Grava em ${esc(estado.confCaminho)}</span>
+      <span class="muted">Grava em ${esc(caminhoGravacao)}</span>
     </div>`;
 
   statusEstado(estado, estado.confExiste);
@@ -353,4 +421,31 @@ export async function initOverlay(): Promise<void> {
     void alternarAtivo(alvo.checked);
   });
   document.getElementById("ov-salvar")?.addEventListener("click", () => void salvarConfig());
+  document.getElementById("ov-perfil")?.addEventListener("change", (ev) => {
+    perfilAtual = (ev.target as HTMLSelectElement).value;
+    void montarOverlay(conteudo, estado);
+  });
+  document.getElementById("ov-perfil-criar")?.addEventListener("click", () => {
+    const campo = document.getElementById("ov-perfil-novo") as HTMLInputElement | null;
+    const nome = campo?.value.trim() ?? "";
+    if (!NOME_PERFIL_RE.test(nome)) {
+      setStatus("Nome de perfil inválido — use 1–48 caracteres de a-z, 0-9, _ ou -", "erro");
+      return;
+    }
+    perfilAtual = nome;
+    void montarOverlay(conteudo, estado);
+  });
+  document.getElementById("ov-perfil-remover")?.addEventListener("click", () => {
+    if (!window.confirm(`Remover o perfil "${perfilAtual}"? Jogos com esse nome de processo voltarão a usar o arquivo global.`)) {
+      return;
+    }
+    const nome = perfilAtual;
+    void invoke<string>("overlay_remover_perfil", { perfil: nome })
+      .then(async (msg) => {
+        perfilAtual = "global";
+        await montarOverlay(conteudo, estado);
+        setStatus(msg, "ok");
+      })
+      .catch((e) => setStatus(String(e), "erro"));
+  });
 }
