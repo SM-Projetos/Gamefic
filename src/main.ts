@@ -4,6 +4,7 @@ import { applyTheme, applyReducedMotion } from "./motion";
 import { initNav } from "./nav";
 import { loadPrefs, savePrefs } from "./prefs";
 import { wireAppClicks } from "./apps";
+import { initOverlay } from "./overlay";
 import { getSystemInfo, renderKernels, renderVisaoGeral } from "./system";
 import { Monitor } from "./monitor";
 import {
@@ -45,6 +46,7 @@ window.addEventListener("DOMContentLoaded", async () => {
   setStatus("info", "Detectando sistema...");
 
   wireAppClicks();
+  void initOverlay();
 
   let ultimoSnapshot: SystemSnapshot | null = null;
 

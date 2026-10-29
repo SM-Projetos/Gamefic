@@ -34,5 +34,6 @@ npx tsc --noEmit                  # tipos do frontend
 - `src-tauri/src/monitor.rs` — coleta periódica em thread de fundo com histórico da sessão
 - `src-tauri/src/events.rs` — histórico persistido de eventos
 - `src-tauri/src/recommendations.rs` — análise e recomendações justificadas pelos dados detectados
+- `src-tauri/src/system/mangohud.rs` — gerenciador próprio de configuração do MangoHud (aba Overlay): leitura/edição/gravação do `MangoHud.conf` preservando opções não gerenciadas, ativação por ambiente nos jogos iniciados pelo app
 
 Dados indisponíveis são exibidos como "Não disponível" — nenhum valor fictício é apresentado como medição real.

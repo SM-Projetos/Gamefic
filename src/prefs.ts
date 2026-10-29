@@ -4,6 +4,8 @@ export type Prefs = {
   theme: "dark" | "light" | "auto";
   reducedMotion: boolean;
   monitorIntervalMs: number;
+  /** aba Overlay: iniciar jogos abertos pelo Gamefic com MANGOHUD=1 */
+  mangohudOverlay?: boolean;
 };
 
 const DEFAULT_PREFS: Prefs = { theme: "dark", reducedMotion: false, monitorIntervalMs: 2000 };
@@ -17,6 +19,7 @@ export async function loadPrefs(): Promise<Prefs> {
       return {
         theme: parsed.theme === "light" || parsed.theme === "auto" ? parsed.theme : "dark",
         reducedMotion: parsed.reducedMotion === true,
+        mangohudOverlay: parsed.mangohudOverlay === true,
         monitorIntervalMs:
           typeof interval === "number" && [1000, 2000, 5000].includes(interval) ? interval : 2000,
       };

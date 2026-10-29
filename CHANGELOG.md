@@ -5,6 +5,10 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/), 
 ## [Não lançado]
 
 ### Adicionado
+- **Gerenciador próprio de configuração do MangoHud (aba Overlay):** leitura, edição e gravação respeitando a sintaxe do arquivo `MangoHud.conf` (`~/.config/MangoHud/MangoHud.conf`), preservando verbatim qualquer opção não gerenciada (chaves avançadas e comentários); controle de métricas (FPS, frametime, CPU/GPU, VRAM/RAM, temperaturas, frequências, consumo, cargas por núcleo, throttling), aparência (posição, tamanho da fonte, transparência, cores, horizontal/compacto), gráficos de desempenho (`graphs`/`frame_timing`), atalhos de teclado e ocultação padrão; validação no Rust (posições/rangos/hex/atalhos); estado transparente do arquivo e aviso claro quando o MangoHud não está instalado (nada é instalado automaticamente). Perfis por jogo ficam preparados na API (só `global` nesta fase, com mensagem explícita para os demais).
+- Ativação do overlay nos jogos iniciados pelo Gamefic: `abrir_app` aceita `overlay` e injeta `MANGOHUD=1` no processo, preservando argumentos e variáveis de ambiente anteriores; a escolha fica nas preferências (`mangohudOverlay`).
+- Novos comandos Tauri: `overlay_estado`, `overlay_carregar`, `overlay_salvar` (I/O em `spawn_blocking`).
+- Testes unitários do parser/gravador do conf (tristate, round-trip estável, preservação de linhas desconhecidas, validação e perfis recusados).
 - Detectores de família ampliados (Alpine/Void/Gentoo/Solus/NixOS), arquitetura real (uname) e catálogo com pacotes mapeados por família (`PkgNat`): `wine-cachyos` só é candidato no CachyOS/Arch.
 - Fonte Snap Store distinta: só é ofertada com `snapd` funcionalmente em execução, com identificadores verificados na API oficial da Snap Store (steam e retroarch).
 - Cache de detalhes com TTL, invalidado por qualquer ação de instalação/remoção, e exemplo `examples/dump_fontes.rs` para diagnóstico manual.

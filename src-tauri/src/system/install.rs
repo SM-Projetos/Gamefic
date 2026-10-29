@@ -446,7 +446,7 @@ fn fonte_snap(snome: &str, mgr: super::pkgmgr::PkgMgr) -> FonteInfo {
 
 /// Executa o launcher já instalado — na fonte em que ele foi detectado.
 /// Flatpak: `flatpak run <id>`; nativo: o binário do pacote.
-pub fn abrir_launcher(id: &str) -> Result<String, String> {
+pub fn abrir_launcher(id: &str, overlay: bool) -> Result<String, String> {
     let info = achado(id).ok_or_else(|| "aplicativo desconhecido".to_string())?;
     if !info.gui {
         return Err(format!(
@@ -458,18 +458,24 @@ pub fn abrir_launcher(id: &str) -> Result<String, String> {
 
     if let Some(fid) = info.flatpak {
         if instalados.iter().any(|l| l == fid) {
-            Command::new("flatpak")
-                .args(["run", fid])
-                .spawn()
-                .map_err(|e| format!("falha ao iniciar: {e}"))?;
+            let mut cmd = Command::new("flatpak");
+            cmd.args(["run", fid]);
+            // ativação do MangoHud por variável de ambiente: não altera
+            // argumentos nem as demais variáveis do processo
+            if overlay {
+                cmd.env("MANGOHUD", "1");
+            }
+            cmd.spawn().map_err(|e| format!("falha ao iniciar: {e}"))?;
             return Ok("Aplicativo iniciado".to_string());
         }
     }
     for pkg in info.pacotes_aptos(super::os::detect_distro().and_then(|d| d.family).as_deref()) {
         if super::pkgmgr::instalado(pkg).is_some() {
-            Command::new(pkg)
-                .spawn()
-                .map_err(|e| format!("falha ao iniciar: {e}"))?;
+            let mut cmd = Command::new(pkg);
+            if overlay {
+                cmd.env("MANGOHUD", "1");
+            }
+            cmd.spawn().map_err(|e| format!("falha ao iniciar: {e}"))?;
             return Ok("Aplicativo iniciado".to_string());
         }
     }

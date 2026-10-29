@@ -3,6 +3,7 @@ pub mod cpu;
 pub mod gpu;
 pub mod icons;
 pub mod install;
+pub mod mangohud;
 pub mod memory;
 pub mod os;
 

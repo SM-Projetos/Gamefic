@@ -384,14 +384,46 @@ fn get_system_info() -> system::SystemSnapshot {
 }
 
 #[tauri::command]
-fn abrir_app(app_id: String) -> Result<String, String> {
-    system::install::abrir_launcher(&app_id)
+fn abrir_app(app_id: String, overlay: Option<bool>) -> Result<String, String> {
+    system::install::abrir_launcher(&app_id, overlay == Some(true))
 }
 
 #[tauri::command]
 fn get_analysis() -> recommendations::Analysis {
     let snapshot = system::snapshot();
     recommendations::analyze(&snapshot)
+}
+
+// ---------- overlay (MangoHud) ----------
+// I/O em disco com spawn_blocking: o conf do usuário pode estar em um
+// caminho lento; a interface não pode travar.
+
+#[tauri::command]
+async fn overlay_estado(perfil: Option<String>) -> serde_json::Value {
+    let perfil = perfil.unwrap_or_else(|| system::mangohud::PERFIL_GLOBAL.to_string());
+    let e = tauri::async_runtime::spawn_blocking(move || system::mangohud::estado(&perfil))
+        .await
+        .expect("spawn_blocking do estado do overlay");
+    serde_json::to_value(&e).unwrap_or(serde_json::json!({"instalado": false}))
+}
+
+#[tauri::command]
+async fn overlay_carregar(perfil: Option<String>) -> Result<system::mangohud::Carregado, String> {
+    let perfil = perfil.unwrap_or_else(|| system::mangohud::PERFIL_GLOBAL.to_string());
+    tauri::async_runtime::spawn_blocking(move || system::mangohud::carregar(&perfil))
+        .await
+        .map_err(|e| format!("falha na tarefa de leitura: {e}"))?
+}
+
+#[tauri::command]
+async fn overlay_salvar(
+    perfil: Option<String>,
+    config: system::mangohud::ConfigMangoHud,
+) -> Result<String, String> {
+    let perfil = perfil.unwrap_or_else(|| system::mangohud::PERFIL_GLOBAL.to_string());
+    tauri::async_runtime::spawn_blocking(move || system::mangohud::salvar(&perfil, &config))
+        .await
+        .map_err(|e| format!("falha na tarefa de gravação: {e}"))?
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -440,6 +472,9 @@ pub fn run() {
             remover_ferramenta_compat,
             remover_wine_compat,
             abrir_app,
+            overlay_estado,
+            overlay_carregar,
+            overlay_salvar,
             instalar_wine,
             instalar_proton_versao,
             get_analysis

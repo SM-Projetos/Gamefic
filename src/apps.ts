@@ -1,5 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 import { mostrarPagina } from "./nav";
+import { overlayAtivo } from "./overlay";
 
 export interface FonteInfo {
   fonte: string;
@@ -404,7 +405,7 @@ function atualizarEstadoEntrada(): void {
       btn.addEventListener("click", () => {
         const id = detalheAtual?.id;
         if (!id) return;
-        invoke<string>("abrir_app", { appId: id })
+        invoke<string>("abrir_app", { appId: id, overlay: overlayAtivo() })
           .catch((e) => console.error("Falha ao abrir:", e));
       });
       acoes.insertBefore(btn, acoes.firstChild);
