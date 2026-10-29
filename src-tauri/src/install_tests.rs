@@ -344,3 +344,47 @@ fn debug_versoes() {
         }
     }
 }
+
+// ---------- fase 2: ativação do MangoHud na iniciação (helpers puros) ----------
+
+use crate::system::install::{args_flatpak_run, mensagem_inicio, MANGOHUD_VAR};
+
+#[test]
+fn flatpak_com_overlay_usa_env_como_argumento() {
+    // o ambiente precisa ir por --env: Command::env não atravessa o sandbox
+    assert_eq!(
+        args_flatpak_run("com.valvesoftware.Steam", true),
+        vec!["run".to_string(), "--env=MANGOHUD=1".to_string(), "com.valvesoftware.Steam".to_string()]
+    );
+}
+
+#[test]
+fn flatpak_sem_overlay_não_introduz_nada() {
+    // comportamento padrão preservado: só run + app-id
+    assert_eq!(
+        args_flatpak_run("com.valvesoftware.Steam", false),
+        vec!["run".to_string(), "com.valvesoftware.Steam".to_string()]
+    );
+}
+
+#[test]
+fn constante_de_crate_mangohud_var() {
+    assert_eq!(MANGOHUD_VAR.0, "MANGOHUD");
+    assert_eq!(MANGOHUD_VAR.1, "1");
+}
+
+#[test]
+fn mensagem_inicio_sem_overlay_igual_ao_padrao_da_fase_1() {
+    assert_eq!(mensagem_inicio(false, false, true), "Aplicativo iniciado");
+    assert_eq!(mensagem_inicio(false, true, false), "Aplicativo iniciado");
+}
+
+#[test]
+fn mensagem_inicio_com_overlay_e_mangohud_ausente_não_bloqueia_e_avisa() {
+    let msg = mensagem_inicio(true, false, false);
+    assert!(msg.contains("Aplicativo iniciado"), "início preservado: {msg}");
+    assert!(msg.contains("MangoHud não foi detectado"), "avisa a ausência: {msg}");
+    let msg2 = mensagem_inicio(true, true, true);
+    assert!(msg2.contains("runtime do Flatpak"), "informa a limitação do sandbox: {msg2}");
+    assert!(!msg2.contains("não foi detectado"), "presente: sem aviso de ausência");
+}

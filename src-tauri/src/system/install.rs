@@ -446,6 +446,47 @@ fn fonte_snap(snome: &str, mgr: super::pkgmgr::PkgMgr) -> FonteInfo {
 
 /// Executa o launcher já instalado — na fonte em que ele foi detectado.
 /// Flatpak: `flatpak run <id>`; nativo: o binário do pacote.
+// ---------- fase 2: ativação do MangoHud na iniciação de jogos ----------
+
+/// constante de ativação do overlay aplicada ao spawn do launcher (os jogos
+/// herdam o ambiente do processo-pai; Steam/Proton/Wine não têm ponto de
+/// spawn próprio no Gamefic — o launcher é o único caminho de partida)
+pub(crate) const MANGOHUD_VAR: (&str, &str) = ("MANGOHUD", "1");
+
+/// argumentos de `flatpak run` para o aplicativo. Com overlay, a variável
+/// precisa ir como `--env`: o valor definido via `Command::env` pertence ao
+/// processo cliente do flatpak e NÃO atravessa o sandbox onde os jogos rodam.
+/// Teve que ser reconstruída em função pura para poder ser testada.
+pub(crate) fn args_flatpak_run(fid: &str, overlay: bool) -> Vec<String> {
+    let mut args = vec!["run".to_string()];
+    if overlay {
+        // no Steam/Flatpak a var percorre o sandbox inteiro: chega ao Steam
+        // e aos jogos por ele iniciados, contanto que o runtime inclua o
+        // MangoHud (a plataforma Flathub inclui; runtimes próprios, não)
+        args.push("--env=MANGOHUD=1".to_string());
+    }
+    args.push(fid.to_string());
+    args
+}
+
+/// mensagem devolvida ao chamador de `abrir_app`: o início do launcher
+/// NUNCA é bloqueado por problema de MangoHud (§ falhas) — o estado
+/// fica explícito na mensagem para o usuário decidir o que fazer
+pub(crate) fn mensagem_inicio(overlay: bool, via_flatpak: bool, mangohud_presente: bool) -> String {
+    if !overlay {
+        return "Aplicativo iniciado".to_string();
+    }
+    let mut msg = if via_flatpak {
+        "Aplicativo iniciado com MANGOHUD=1 (o overlay aparece apenas se o runtime do Flatpak incluir o MangoHud)".to_string()
+    } else {
+        "Aplicativo iniciado com MANGOHUD=1".to_string()
+    };
+    if !mangohud_presente {
+        msg.push_str(" — atenção: MangoHud não foi detectado no sistema; o overlay não será exibido (veja a aba Overlay)");
+    }
+    msg
+}
+
 pub fn abrir_launcher(id: &str, overlay: bool) -> Result<String, String> {
     let info = achado(id).ok_or_else(|| "aplicativo desconhecido".to_string())?;
     if !info.gui {
@@ -459,24 +500,20 @@ pub fn abrir_launcher(id: &str, overlay: bool) -> Result<String, String> {
     if let Some(fid) = info.flatpak {
         if instalados.iter().any(|l| l == fid) {
             let mut cmd = Command::new("flatpak");
-            cmd.args(["run", fid]);
-            // ativação do MangoHud por variável de ambiente: não altera
-            // argumentos nem as demais variáveis do processo
-            if overlay {
-                cmd.env("MANGOHUD", "1");
-            }
+            cmd.args(args_flatpak_run(fid, overlay));
             cmd.spawn().map_err(|e| format!("falha ao iniciar: {e}"))?;
-            return Ok("Aplicativo iniciado".to_string());
+            return Ok(mensagem_inicio(overlay, true, super::mangohud::instalado()));
         }
     }
     for pkg in info.pacotes_aptos(super::os::detect_distro().and_then(|d| d.family).as_deref()) {
         if super::pkgmgr::instalado(pkg).is_some() {
             let mut cmd = Command::new(pkg);
             if overlay {
-                cmd.env("MANGOHUD", "1");
+                let (var, valor) = MANGOHUD_VAR;
+                cmd.env(var, valor);
             }
             cmd.spawn().map_err(|e| format!("falha ao iniciar: {e}"))?;
-            return Ok("Aplicativo iniciado".to_string());
+            return Ok(mensagem_inicio(overlay, false, super::mangohud::instalado()));
         }
     }
     Err(format!("{} não está instalado", info.nome))

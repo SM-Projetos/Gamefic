@@ -205,7 +205,7 @@ function secaoAtivacaoHtml(prefs: Prefs): string {
   return `
     <h2 class="page__section-title">Ativação</h2>
     <div class="grid">${switchHtml("ovi-ativo", "Overlay ligado nos jogos iniciados pelo Gamefic (MANGOHUD=1)", prefs.mangohudOverlay === true)}</div>
-    <p class="muted">Aplica-se aos aplicativos iniciados pelos detalhes do app. Para jogos abertos por fora (pelo Steam do sistema, por exemplo), utilize o próprio atalho <span class="num">mangohud</span> da linha de comando.</p>`;
+    <p class="muted">Como funciona: a variável <span class="num">MANGOHUD=1</span> é repassada ao launcher aberto pelo Gamefic e os jogos herdam o ambiente dele — Steam nativo e launchers nativos alcançam jogos Vulkan/OpenGL e Proton/DXVK. Em aplicativos Flatpak a variável entra por <span class="num">--env</span> e só aparece o overlay se o runtime incluir o MangoHud. Jogos Direct3D sem DXVK/Proton não exibem o overlay; Wine puro não é iniciado diretamente pelo Gamefic. Para jogos abertos por fora (Steam do sistema), utilize o wrapper <span class="num">mangohud</span> da linha de comando.</p>`;
 }
 
 // ---------- leitura / gravação ----------
