@@ -27,7 +27,7 @@
           </button>
           <button class="nav__item" data-tab="desempenho" type="button">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h4l2.5-7 5 14 2.5-7h4"/></svg>
-            Hardware e Sistema
+            Monitor do Sistema
           </button>
           <button class="nav__item" data-tab="kernels" type="button">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="8" width="8" height="8" rx="1.5"/><path d="M10 3v3M14 3v3M10 18v3M14 18v3M3 10h3M3 14h3M18 10h3M18 14h3"/></svg>
@@ -36,6 +36,10 @@
           <button class="nav__item" data-tab="otimizacao" type="button">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.87l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.7 1.7 0 0 0-1.87-.34 1.7 1.7 0 0 0-1.03 1.56V21a2 2 0 1 1-4 0v-.09a1.7 1.7 0 0 0-1.03-1.56 1.7 1.7 0 0 0-1.87.34l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-1.56-1.03H3a2 2 0 1 1 0-4h.09A1.7 1.7 0 0 0 4.6 8.94a1.7 1.7 0 0 0-.34-1.87l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.7 1.7 0 0 0 1.87.34h.09a1.7 1.7 0 0 0 1.03-1.55V3a2 2 0 1 1 4 0v.09a1.7 1.7 0 0 0 1.03 1.56 1.7 1.7 0 0 0 1.87-.34l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.7 1.7 0 0 0-.34 1.87v.09c.22.63.79 1.06 1.46 1.03H21a2 2 0 1 1 0 4h-.09a1.7 1.7 0 0 0-1.51 1.03Z"/></svg>
             Otimização
+          </button>
+          <button class="nav__item" data-tab="overlay" type="button">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
+            Overlay
           </button>
           <button class="nav__item" data-tab="historico" type="button">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>
@@ -108,7 +112,7 @@
         </div>
 
         <section class="page" id="page-desempenho">
-          <h1 class="page-title">Hardware e Sistema</h1>
+          <h1 class="page-title">Monitor do Sistema</h1>
           <p class="page-desc">Hardware detectado com monitoramento em tempo real e informações do sistema.</p>
           <span class="muted" id="monitor-estado" hidden>Iniciando monitoramento...</span>
 
@@ -262,6 +266,13 @@
           <div class="grid" id="opt-recomendacoes"></div>
           <h2 class="page__section-title">Perfis — estrutura (ativação em etapa futura)</h2>
           <div class="grid" id="opt-perfis"></div>
+        </section>
+
+        <section class="page" id="page-overlay">
+          <h1 class="page-title">Overlay</h1>
+          <p class="page-desc">Configuração de overlays de desempenho (MangoHud/GOverlay) durante os jogos.</p>
+          <div class="grid" id="overlay-conteudo"></div>
+          <p class="muted">Ações desta aba serão implementadas em etapa futura.</p>
         </section>
 
         <section class="page" id="page-historico">
