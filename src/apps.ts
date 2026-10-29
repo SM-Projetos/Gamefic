@@ -358,8 +358,9 @@ function atualizarEstadoEntrada(): void {
   const btnInstalar = document.querySelector<HTMLButtonElement>("#btn-app-instalar");
   const btnAtualizar = document.querySelector<HTMLButtonElement>("#btn-app-atualizar");
   const btnRemover = document.querySelector<HTMLButtonElement>("#btn-app-remover");
-  const dropdownWrapper = document.querySelector<HTMLElement>(".fonte-dropdown-wrapper");
-  const btnAbrir = document.querySelector<HTMLButtonElement>("#btn-app-abrir");
+  const detalheCard = document.getElementById("app-detalhe-card");
+  const dropdownWrapper = detalheCard?.querySelector<HTMLElement>(".fonte-dropdown-wrapper") ?? null;
+  const btnAbrir = detalheCard?.querySelector<HTMLButtonElement>("#btn-app-abrir") ?? null;
 
   const algumInstalado = detalheAtual ? detalheAtual.fontes.some((x) => x.instalado) : false;
   const semOpcoes = detalheAtual
@@ -436,6 +437,32 @@ function executarAcao(acao: "instalar" | "atualizar" | "remover"): void {
     });
 }
 
+/// ações vindas dos cards da visão geral: rodam no próprio card, sem abrir a janela de detalhes
+function executarAcaoCard(botao: HTMLButtonElement): void {
+  const tile = botao.closest<HTMLElement>(".tool-tile");
+  const id = botao.dataset.appId || tile?.dataset.appId || "";
+  const status = tile?.querySelector<HTMLElement>(".app-card__status") ?? null;
+  if (!tile || !status || !id) return;
+  const acao = (botao.dataset.appAcao ?? "") as "instalar" | "atualizar" | "remover" | "abrir";
+  if (acao === "abrir") {
+    invoke<string>("abrir_app", { appId: id, overlay: overlayAtivo() })
+      .catch((e) => {
+        status.textContent = `Erro: ${String(e)}`;
+      });
+    return;
+  }
+  status.textContent = acao === "instalar" ? "Instalando..." : acao === "atualizar" ? "Atualizando..." : "Removendo...";
+  invoke<string>("app_action", { appId: id, acao, fonte: botao.dataset.fonte ?? "" })
+    .then((msg) => {
+      status.textContent = msg;
+      revalidarEstados();
+    })
+    .catch((e) => {
+      status.textContent = `Erro: ${String(e)}`;
+      revalidarEstados();
+    });
+}
+
 // ---------- tiles clicáveis + card "+" ----------
 
 export function wireAppClicks(): void {
@@ -445,6 +472,17 @@ export function wireAppClicks(): void {
     if (!grid) return;
     grid.addEventListener("click", (ev) => {
       const target = ev.target as HTMLElement;
+      const acaoBotao = target.closest<HTMLButtonElement>("button[data-app-acao]");
+      if (acaoBotao) {
+        ev.stopPropagation();
+        executarAcaoCard(acaoBotao);
+        return;
+      }
+      const chooser = target.closest<HTMLButtonElement>("button[data-fonte-chooser]");
+      if (chooser) {
+        ev.stopPropagation();
+        return;
+      }
       const tile = target.closest<HTMLElement>(".tool-tile");
       if (!tile) return;
       if (tile.classList.contains("tool-tile--add")) {

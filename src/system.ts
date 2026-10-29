@@ -1,4 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
+import type { AppDetail } from "./apps";
 
 export interface DistroInfo {
   name: string;
@@ -331,6 +332,101 @@ export function classificarTemperatura(c: number): { classe: string; texto: stri
   return { classe: "ok", texto: "Normal" };
 }
 
+const detalhesPromiseCache = new Map<string, Promise<AppDetail | null>>();
+
+function detalhePromise(appId: string): Promise<AppDetail | null> {
+  const cached = detalhesPromiseCache.get(appId);
+  if (cached) return cached;
+  const promise = invoke<AppDetail | null>("get_app_detail", { appId }).catch(() => null);
+  detalhesPromiseCache.set(appId, promise);
+  return promise;
+}
+
+function rotuloFonte(fonte: string): string {
+  if (fonte === "flatpak") return "Flatpak";
+  if (fonte === "flatpak-user") return "Flatpak (usuário)";
+  if (fonte.startsWith("snap:")) return `Snap Store (${fonte.split(":")[1]})`;
+  if (fonte.startsWith("nativo:")) return `Nativo (${fonte.split(":")[1]})`;
+  return fonte;
+}
+
+async function popularizarCartao(tile: HTMLElement): Promise<void> {
+  const appId = tile.dataset.appId ?? "";
+  if (!appId) return;
+  const detalhe = await detalhePromise(appId);
+  const acoes = tile.querySelector<HTMLElement>(".app-card__acoes");
+  if (!acoes || !detalhe) return;
+  const algumInstalado = detalhe.fontes.some((f) => f.instalado);
+  const fonteInstalada = detalhe.fontes.find((f) => f.instalado) ?? null;
+  const fontesOfertaveis = detalhe.fontes.filter((f) => f.disponivel && !f.instalado);
+  const semOpcoes = !algumInstalado && fontesOfertaveis.length === 0;
+  const gui = Boolean(detalhe.gui) && algumInstalado && Boolean(fonteInstalada);
+  const temAtualizacao =
+    Boolean(fonteInstalada && fonteInstalada.versaoRepo && fonteInstalada.versaoRepo !== fonteInstalada.versao);
+
+  const btnInstalar = acoes.querySelector<HTMLButtonElement>("[data-app-acao='instalar']");
+  const btnAtualizar = acoes.querySelector<HTMLButtonElement>("[data-app-acao='atualizar']");
+  const btnRemover = acoes.querySelector<HTMLButtonElement>("[data-app-acao='remover']");
+  const btnAbrir = acoes.querySelector<HTMLButtonElement>("[data-app-acao='abrir']");
+  const wrapper = acoes.querySelector<HTMLElement>("[data-fonte-wrapper]");
+  const menu = tile.querySelector<HTMLElement>("[data-fonte-menu]");
+
+  if (btnInstalar) {
+    btnInstalar.style.display = algumInstalado || semOpcoes ? "none" : "inline-flex";
+    if (!algumInstalado) btnInstalar.dataset.fonte = fontesOfertaveis[0]?.fonte ?? "";
+  }
+  if (wrapper) {
+    wrapper.style.display = !algumInstalado && fontesOfertaveis.length > 1 ? "inline-block" : "none";
+  }
+  const btnChooser = wrapper?.querySelector<HTMLButtonElement>("[data-fonte-chooser]");
+  if (btnChooser && menu) {
+    btnChooser.addEventListener("click", () => {
+      menu.toggleAttribute("hidden");
+    });
+  }
+  if (menu && fontesOfertaveis.length > 1) {
+    menu.innerHTML = "";
+    fontesOfertaveis.forEach((f) => {
+      const item = document.createElement("button");
+      item.type = "button";
+      item.className = "fonte-dropdown-menu__item";
+      item.dataset.fonte = f.fonte;
+      item.textContent = rotuloFonte(f.fonte);
+      item.addEventListener("click", () => {
+        const inst = tile.querySelector<HTMLButtonElement>("[data-app-acao='instalar']");
+        if (inst) inst.dataset.fonte = f.fonte;
+        const label = wrapper?.querySelector<HTMLElement>("[data-fonte-label]");
+        if (label) label.textContent = rotuloFonte(f.fonte);
+        if (menu) menu.setAttribute("hidden", "");
+      });
+      menu.appendChild(item);
+    });
+  }
+
+  if (btnAtualizar) {
+    btnAtualizar.style.display = algumInstalado && temAtualizacao ? "inline-flex" : "none";
+    btnAtualizar.textContent = temAtualizacao ? "Atualizar" : "Atualizado";
+    btnAtualizar.dataset.fonte = fonteInstalada?.fonte ?? "";
+  }
+  if (btnRemover) {
+    btnRemover.style.display = algumInstalado ? "inline-flex" : "none";
+    btnRemover.dataset.fonte = fonteInstalada?.fonte ?? "";
+    btnRemover.disabled = !fonteInstalada;
+  }
+  if (btnAbrir) {
+    btnAbrir.style.display = gui ? "inline-flex" : "none";
+  }
+
+  const status = tile.querySelector<HTMLElement>(".app-card__status");
+  if (status) {
+    status.textContent = semOpcoes
+      ? detalhe.fontes.some((f) => f.indeterminado)
+        ? "Não foi possível verificar as fontes agora (falha temporária) — recarregue os detalhes para tentar novamente."
+        : "Não encontrado em nenhuma fonte compatível com este sistema."
+      : "";
+  }
+}
+
 function renderTiles(entries: AppEntry[], gridId: string, emptyMsg: string): void {
   const grid = document.getElementById(gridId);
   if (!grid) return;
@@ -339,6 +435,8 @@ function renderTiles(entries: AppEntry[], gridId: string, emptyMsg: string): voi
     grid.innerHTML = `<p class="muted tools-grid__empty">${esc(emptyMsg)}</p>`;
     return;
   }
+  // o card "+" (adicionar compatibilidade) é exclusivo do grid de compatibilidade
+  const comAcoes = gridId !== "ov-compat";
   entries.forEach((entry, i) => {
     const estado = entry.estado ?? (entry.available ? "instalado" : "nao_instalado");
     const rotuloEstado =
@@ -348,7 +446,7 @@ function renderTiles(entries: AppEntry[], gridId: string, emptyMsg: string): voi
           ? "Verificação indisponível"
           : "Não instalado";
     const tile = document.createElement("div");
-    tile.className = `tool-tile${estado === "instalado" ? "" : " tool-tile--off"}`;
+    tile.className = `tool-tile tool-tile--card${estado === "instalado" ? "" : " tool-tile--off"}`;
     tile.dataset.appId = entry.id ?? "";
     const iconHtml = entry.icon
       ? `<span class="tool-tile__icon" aria-hidden="true"><img class="tool-tile__img" src="${esc(entry.icon)}" alt=""></span>`
@@ -358,13 +456,39 @@ function renderTiles(entries: AppEntry[], gridId: string, emptyMsg: string): voi
         ? ` <span class="tool-tile__version num">${esc(entry.version)}</span>`
         : "";
     tile.innerHTML = `
-      ${iconHtml}
-      <span class="tool-tile__name">${esc(entry.name)}${versionHtml}</span>
-      <span class="tool-tile__status ${estado === "instalado" ? "" : "tool-tile__status--off"}">
-        ${esc(rotuloEstado)}
-      </span>
+      <div class="app-card__cabecalho">
+        ${iconHtml}
+        <div class="app-card__info">
+          <span class="tool-tile__name">${esc(entry.name)}${versionHtml}</span>
+          <p class="app-card__desc">${esc(entry.description)}</p>
+          <span class="tool-tile__status ${estado === "instalado" ? "" : "tool-tile__status--off"}">
+            ${esc(rotuloEstado)}
+          </span>
+        </div>
+      </div>
+      ${comAcoes ? `
+      <div class="app-card__acoes">
+        <button class="btn btn--primary" type="button" data-app-acao="instalar" data-app-id="${esc(entry.id ?? "")}" data-fonte="" hidden>Instalar</button>
+        <div class="fonte-dropdown-wrapper" data-fonte-wrapper hidden>
+          <button type="button" class="btn btn--primary fonte-dropdown-btn" data-fonte-chooser="1" data-app-id="${esc(entry.id ?? "")}">
+            <span data-fonte-label>Flatpak</span>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg>
+          </button>
+          <div class="fonte-dropdown-menu" data-fonte-menu hidden></div>
+        </div>
+        <button class="btn btn--ghost" type="button" data-app-acao="atualizar" data-app-id="${esc(entry.id ?? "")}" data-fonte="" hidden>Atualizar</button>
+        <button class="btn btn--ghost" type="button" data-app-acao="remover" data-app-id="${esc(entry.id ?? "")}" data-fonte="" hidden>Remover</button>
+        <button class="btn btn--primary" type="button" data-app-acao="abrir" data-app-id="${esc(entry.id ?? "")}" hidden>Abrir</button>
+        <p class="field__status app-card__status" data-app-id="${esc(entry.id ?? "")}">&nbsp;</p>
+      </div>
+      ` : ""}
     `;
     grid.appendChild(tile);
+    if (comAcoes) {
+      popularizarCartao(tile).catch(() => {
+        /* falhas de detalhe não devem interromper a renderização do card */
+      });
+    }
   });
 }
 
