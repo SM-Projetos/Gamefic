@@ -94,10 +94,14 @@
   --accent-purple: #2456d6;
   --accent-purple-bright: #3b82f6;
   --accent-cyan: #0e7490;
+  /* status verde/âmbar escurecidos para contraste no fundo claro (tema escuro usa os de :root) */
+  --accent-green: #047857;
+  --accent-green-translucent: rgba(4, 120, 87, 0.12);
+  --accent-amber: #c2410c;
+  --accent-amber-translucent: rgba(194, 65, 12, 0.12);
 
   --accent-purple-translucent: rgba(36, 86, 214, 0.14);
   --accent-cyan-translucent: rgba(14, 116, 144, 0.12);
-  --accent-amber-translucent: rgba(184, 121, 7, 0.14);
   --accent-red-translucent: rgba(198, 40, 40, 0.12);
 
   --shadow-card: 0 1px 6px rgba(22, 50, 79, 0.12);
