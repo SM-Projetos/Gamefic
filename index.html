@@ -66,37 +66,73 @@
 
       <main class="content">
         <section class="page page--active" id="page-visao-geral">
-          <h2 class="page__section-title" style="margin-top: var(--space-5);">Launchers</h2>
-          <div class="card tools-card">
-            <div class="tools-grid" id="ov-launchers">
-              <p class="muted">Consultando...</p>
+          <header class="apps-head">
+            <div class="apps-head__texto">
+              <h1 class="page-title">Apps</h1>
+              <p class="page-desc">Catálogo de launchers, emuladores, ferramentas e ferramentas de compatibilidade para jogos.</p>
             </div>
+            <div class="apps-head__lateral">
+              <div class="apps-indicadores" role="status" aria-live="polite" aria-label="Indicadores do catálogo">
+                <span class="apps-indicador" title="Aplicativos visíveis no catálogo">
+                  <span class="apps-indicador__valor num" id="apps-total">—</span>
+                  <span class="apps-indicador__rotulo">No catálogo</span>
+                </span>
+                <span class="apps-indicador apps-indicador--ok" title="Aplicativos instalados">
+                  <span class="apps-indicador__valor num" id="apps-instalados">—</span>
+                  <span class="apps-indicador__rotulo">Instalados</span>
+                </span>
+                <button class="apps-indicador apps-indicador--warn apps-indicador--btn" title="Instalados com atualização disponível no repositório" id="apps-botao-atualizacoes" type="button">
+                  <span class="apps-indicador__valor num" id="apps-atualizacoes">—</span>
+                  <span class="apps-indicador__rotulo">Atualizações</span>
+                </button>
+              </div>
+              <label class="apps-busca">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+                <input type="search" id="apps-busca" placeholder="Buscar aplicativo…" aria-label="Buscar aplicativo no catálogo" autocomplete="off" />
+              </label>
+            </div>
+          </header>
+
+          <div class="apps-estado" id="apps-estado" hidden>
+            <p class="apps-estado__texto" id="apps-estado-texto"></p>
+            <button class="btn btn--outline" id="apps-retentar" type="button" hidden>Tentar novamente</button>
           </div>
 
-          <h2 class="page__section-title" style="margin-top: var(--space-5);">Emuladores</h2>
-          <div class="card tools-card">
-            <div class="tools-grid" id="ov-emul">
-              <p class="muted">Consultando...</p>
+          <section aria-labelledby="apps-titulo-launchers">
+            <div class="apps-categoria-head">
+              <h2 class="page__section-title" id="apps-titulo-launchers" style="margin-top: var(--space-5);">Launchers</h2>
             </div>
-          </div>
+            <div class="apps-grid" id="ov-launchers" role="list" aria-labelledby="apps-titulo-launchers">
+              <p class="muted apps-grid__vazio">Consultando...</p>
+            </div>
+          </section>
 
-          <h2 class="page__section-title" style="margin-top: var(--space-5);">Ferramentas de jogos</h2>
-          <div class="card tools-card">
-            <div class="tools-grid" id="ov-tools">
-              <p class="muted">Consultando...</p>
+          <section aria-labelledby="apps-titulo-emul">
+            <div class="apps-categoria-head">
+              <h2 class="page__section-title" id="apps-titulo-emul" style="margin-top: var(--space-5);">Emuladores</h2>
             </div>
-            <button class="link-arrow" data-tab="otimizacao" type="button">
-              Gerenciar ferramentas
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg>
-            </button>
-          </div>
+            <div class="apps-grid" id="ov-emul">
+              <p class="muted apps-grid__vazio">Consultando...</p>
+            </div>
+          </section>
 
-          <h2 class="page__section-title" style="margin-top: var(--space-5);">Compatibilidade</h2>
-          <div class="card tools-card">
-            <div class="tools-grid" id="ov-compat">
-              <p class="muted">Consultando...</p>
+          <section aria-labelledby="apps-titulo-tools">
+            <div class="apps-categoria-head">
+              <h2 class="page__section-title" id="apps-titulo-tools" style="margin-top: var(--space-5);">Ferramentas de jogos</h2>
             </div>
-          </div>
+            <div class="apps-grid" id="ov-tools">
+              <p class="muted apps-grid__vazio">Consultando...</p>
+            </div>
+          </section>
+
+          <section aria-labelledby="apps-titulo-compat">
+            <div class="apps-categoria-head">
+              <h2 class="page__section-title" id="apps-titulo-compat" style="margin-top: var(--space-5);">Compatibilidade</h2>
+            </div>
+            <div class="apps-grid" id="ov-compat">
+              <p class="muted apps-grid__vazio">Consultando...</p>
+            </div>
+          </section>
         </section>
 
         <div class="modal-scrim app-manager-scrim" id="app-manager-scrim" hidden>
@@ -344,6 +380,21 @@
               <button class="btn btn--outline" id="btn-limpar-hist" type="button">Limpar</button>
             </div>
             <p class="muted" id="compat-status" hidden>&nbsp;</p>
+          </div>
+        </div>
+
+        <div class="modal-scrim" id="modal-atualizacoes" hidden>
+          <div class="modal card" role="dialog" aria-modal="true" aria-labelledby="modal-atualizacoes-title" style="width: min(520px, 92vw);">
+            <div class="modal__head">
+              <h3 class="modal__title" id="modal-atualizacoes-title">Atualizações</h3>
+              <button class="icon-btn" id="btn-fechar-atualizacoes" type="button" aria-label="Fechar">✕</button>
+            </div>
+            <ul id="atualizacoes-lista" style="margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: var(--space-2);"></ul>
+            <p class="muted" id="atualizacoes-vazio" style="margin: var(--space-2) 0;">Nenhuma atualização disponível no momento.</p>
+            <div id="atualizacoes-acoes" style="margin-top: var(--space-4); padding-top: var(--space-3); border-top: var(--border-width) solid var(--border); display: flex; justify-content: flex-end; align-items: center; gap: var(--space-2);">
+              <p class="muted" id="atualizacoes-status" style="margin: 0; flex: 1; font-size: var(--text-aux);" aria-live="polite"></p>
+              <button class="btn btn--primary" id="btn-atualizar-tudo" type="button">Atualizar tudo</button>
+            </div>
           </div>
         </div>
 

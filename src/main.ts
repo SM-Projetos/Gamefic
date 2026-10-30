@@ -5,7 +5,7 @@ import { initNav } from "./nav";
 import { loadPrefs, savePrefs } from "./prefs";
 import { wireAppClicks } from "./apps";
 import { initOverlay } from "./overlay";
-import { getSystemInfo, renderKernels, renderVisaoGeral } from "./system";
+import { appsEstadoErro, appsEstadoLimpar, getSystemInfo, renderKernels, renderVisaoGeral } from "./system";
 import { Monitor } from "./monitor";
 import {
   clearEvents,
@@ -75,22 +75,34 @@ window.addEventListener("DOMContentLoaded", async () => {
       .catch(() => {});
   };
 
-  getSystemInfo()
-    .then((snapshot: SystemSnapshot) => {
-      ultimoSnapshot = snapshot;
-      renderVisaoGeral(snapshot);
-      renderKernels(snapshot);
-      setStatus("ok", "Sistema detectado");
-      recordEvent("deteccao", "detecção do sistema", "concluido", "Hardware e sistema identificados com as fontes nativas");
-      // Verifica ícones mais recentes em segundo plano e re-renderiza se mudar algo
-      window.setTimeout(verificarIcones, 15_000);
-      window.setInterval(verificarIcones, 6 * 60 * 60 * 1000);
-    })
-    .catch((e) => {
-      console.error("Falha na detecção do sistema:", e);
-      setStatus("error", "Detecção indisponível");
-      recordEvent("deteccao", "detecção do sistema", "falha", `Detecção não concluída: ${String(e)}`);
-    });
+  let agendouIcones = false;
+  const detectar = () => {
+    appsEstadoLimpar();
+    setStatus("info", "Detectando sistema...");
+    getSystemInfo()
+      .then((snapshot: SystemSnapshot) => {
+        ultimoSnapshot = snapshot;
+        renderVisaoGeral(snapshot);
+        renderKernels(snapshot);
+        setStatus("ok", "Sistema detectado");
+        recordEvent("deteccao", "detecção do sistema", "concluido", "Hardware e sistema identificados com as fontes nativas");
+        // Verifica ícones mais recentes em segundo plano e re-renderiza se mudar algo
+        if (!agendouIcones) {
+          agendouIcones = true;
+          window.setTimeout(verificarIcones, 15_000);
+          window.setInterval(verificarIcones, 6 * 60 * 60 * 1000);
+        }
+      })
+      .catch((e) => {
+        console.error("Falha na detecção do sistema:", e);
+        setStatus("error", "Detecção indisponível");
+        appsEstadoErro("Não foi possível detectar o sistema — o catálogo de aplicativos está indisponível no momento.");
+        recordEvent("deteccao", "detecção do sistema", "falha", `Detecção não concluída: ${String(e)}`);
+      });
+  };
+  detectar();
+  // estado de erro do catálogo: tentar novamente refaz a detecção completa
+  document.getElementById("apps-retentar")?.addEventListener("click", detectar);
 
   getAnalysis()
     .then(renderOtimizacao)

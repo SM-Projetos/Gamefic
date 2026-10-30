@@ -118,24 +118,241 @@ export function temperatura(celsius: number): string {
   return `${celsius.toFixed(1)} °C`;
 }
 
+let ultimoCatalogo: SystemSnapshot | null = null;
+let termoBusca = "";
+let appsUIwired = false;
+
+interface InfoAtualizacao {
+  nome: string;
+  fonte: string;
+  versao: string;
+  versaoRepo: string;
+}
+
+/** apps com atualização confirmada pelos detalhes reais (fonte: popularizarCartao) */
+const atualizacoesMap = new Map<string, InfoAtualizacao>();
+
 export function renderVisaoGeral(snapshot: SystemSnapshot): void {
-  renderTiles(snapshot.launchers, "ov-launchers", "Nenhum launcher instalado");
-  renderTiles(snapshot.tools, "ov-tools", "Nenhuma ferramenta de jogos detectada");
-  renderTiles(snapshot.compatibilidade, "ov-compat", "Nenhuma ferramenta de compatibilidade detectada");
-  renderTiles(snapshot.emuladores, "ov-emul", "Nenhum emulador detectado");
-  inserirCardAddCompat();
+  ultimoCatalogo = snapshot;
+  appsEstadoLimpar();
+  wireAppsUI();
+  renderCatalogo();
   renderDesempenho(snapshot);
+}
+
+/** erro global na detecção: estado de erro do catálogo com tentativa de novo (por main.ts) */
+export function appsEstadoErro(mensagem: string): void {
+  const box = document.getElementById("apps-estado");
+  if (!box) return;
+  box.removeAttribute("hidden");
+  const texto = document.getElementById("apps-estado-texto");
+  if (texto) texto.textContent = mensagem;
+  document.getElementById("apps-retentar")?.removeAttribute("hidden");
+}
+
+export function appsEstadoLimpar(): void {
+  document.getElementById("apps-estado")?.setAttribute("hidden", "");
+}
+
+function entradasTotais(snapshot: SystemSnapshot): AppEntry[] {
+  return [
+    ...snapshot.launchers,
+    ...snapshot.emuladores,
+    ...snapshot.tools,
+    ...snapshot.compatibilidade,
+  ];
+}
+
+function atualizarIndicadores(snapshot: SystemSnapshot): void {
+  const todas = entradasTotais(snapshot);
+  const instaladas = todas.filter(
+    (e) => (e.estado ?? (e.available ? "instalado" : "nao_instalado")) === "instalado",
+  ).length;
+  setText("#apps-total", String(todas.length));
+  setText("#apps-instalados", String(instaladas));
+  setText("#apps-atualizacoes", String(atualizacoesMap.size));
+}
+
+function renderCatalogo(): void {
+  if (!ultimoCatalogo) return;
+  atualizacoesMap.clear(); // recontada conforme os detalhes de cada card chegam
+  const termo = termoBusca.trim().toLowerCase();
+  const filtrar = (lista: AppEntry[]) =>
+    termo
+      ? lista.filter((e) => `${e.name} ${e.description}`.toLowerCase().includes(termo))
+      : lista;
+  const msgSemResultado = termo
+    ? `Nenhum resultado para “${termoBusca.trim()}” nesta categoria.`
+    : "";
+  renderTiles(filtrar(ultimoCatalogo.launchers), "ov-launchers", "Nenhum launcher instalado", msgSemResultado);
+  renderTiles(filtrar(ultimoCatalogo.emuladores), "ov-emul", "Nenhum emulador detectado", msgSemResultado);
+  renderTiles(filtrar(ultimoCatalogo.tools), "ov-tools", "Nenhuma ferramenta de jogos detectada", msgSemResultado);
+  renderTiles(filtrar(ultimoCatalogo.compatibilidade), "ov-compat", "Nenhuma ferramenta de compatibilidade detectada", msgSemResultado);
+  inserirCardAddCompat();
+  atualizarIndicadores(ultimoCatalogo);
+  sincronizarModalAtualizacoes();
+}
+
+function wireAppsUI(): void {
+  if (appsUIwired) return;
+  appsUIwired = true;
+  document.getElementById("apps-busca")?.addEventListener("input", (ev) => {
+    termoBusca = (ev.target as HTMLInputElement).value;
+    renderCatalogo();
+  });
+
+  const botaoAtualizacoes = document.getElementById("apps-botao-atualizacoes");
+  const scrim = document.getElementById("modal-atualizacoes");
+  botaoAtualizacoes?.addEventListener("click", abrirModalAtualizacoes);
+  document.getElementById("btn-fechar-atualizacoes")?.addEventListener("click", () => {
+    scrim?.setAttribute("hidden", "");
+  });
+  // clique no fundo do scrim fecha (só quando o alvo é o próprio scrim)
+  scrim?.addEventListener("click", (ev) => {
+    if (ev.target === scrim) scrim.setAttribute("hidden", "");
+  });
+
+  const lista = document.getElementById("atualizacoes-lista");
+  // atualização individual (delegado)
+  lista?.addEventListener("click", (ev) => {
+    const botao = (ev.target as HTMLElement).closest<HTMLButtonElement>("button[data-atualizar-app]");
+    if (!botao) return;
+    void atualizarAppPopup(botao.dataset.appId ?? "", botao.dataset.fonte ?? "", botao);
+  });
+  document.getElementById("btn-atualizar-tudo")?.addEventListener("click", () => {
+    void atualizarTudoPopup();
+  });
+}
+
+// ---------- popup "Atualizações" ----------
+
+function modalAtualizacoesAberto(): boolean {
+  const scrim = document.getElementById("modal-atualizacoes");
+  return Boolean(scrim && !scrim.hasAttribute("hidden"));
+}
+
+function abrirModalAtualizacoes(): void {
+  renderizarListaAtualizacoes();
+  document.getElementById("modal-atualizacoes")?.removeAttribute("hidden");
+}
+
+/** mantém o popup coerente com o mapa real quando o catálogo é revalidado */
+function sincronizarModalAtualizacoes(): void {
+  if (modalAtualizacoesAberto()) renderizarListaAtualizacoes();
+}
+
+function renderizarListaAtualizacoes(): void {
+  const lista = document.getElementById("atualizacoes-lista");
+  const vazio = document.getElementById("atualizacoes-vazio");
+  const acoes = document.getElementById("atualizacoes-acoes");
+  const status = document.getElementById("atualizacoes-status");
+  if (!lista) return;
+  lista.innerHTML = "";
+  const itens = Array.from(atualizacoesMap.entries());
+  if (itens.length === 0) {
+    if (vazio) vazio.removeAttribute("hidden");
+    if (acoes) acoes.setAttribute("hidden", "");
+    return;
+  }
+  if (vazio) vazio.setAttribute("hidden", "");
+  if (acoes) acoes.removeAttribute("hidden");
+  if (status) status.textContent = "";
+  const botaoTudo = document.getElementById("btn-atualizar-tudo") as HTMLButtonElement | null;
+  if (botaoTudo) {
+    botaoTudo.disabled = false;
+    botaoTudo.textContent = "Atualizar tudo";
+  }
+  itens.forEach(([appId, info]) => {
+    const item = document.createElement("li");
+    item.className = "atualizacao-item";
+    item.dataset.appId = appId;
+    const dif = info.versaoRepo ? `<span class="atualizacao-item__versao num">${esc(info.versao || "—")} → ${esc(info.versaoRepo)}</span>` : "";
+    item.innerHTML = `
+      <span class="atualizacao-item__nome">${esc(info.nome)} ${dif}</span>
+      <button class="btn btn--ghost btn--small" type="button" data-atualizar-app data-app-id="${esc(appId)}" data-fonte="${esc(info.fonte)}">Atualizar</button>
+    `;
+    lista.appendChild(item);
+  });
+}
+
+async function atualizarAppPopup(appId: string, fonte: string, botao: HTMLButtonElement): Promise<void> {
+  if (!appId) return;
+  const status = document.getElementById("atualizacoes-status");
+  const item = botao.closest<HTMLElement>(".atualizacao-item");
+  botao.disabled = true;
+  if (item) item.setAttribute("aria-busy", "true");
+  if (status) status.textContent = "Atualizando...";
+  try {
+    const msg = await invoke<string>("app_action", { appId, acao: "atualizar", fonte });
+    if (status) status.textContent = msg;
+    setAtualizadoNaLista(appId, msg);
+  } catch (e) {
+    if (status) status.textContent = `Erro: ${String(e)}`;
+    botao.disabled = false;
+    if (item) item.removeAttribute("aria-busy");
+  }
+  window.dispatchEvent(new Event("estado-apps-mudou"));
+  invalidarDetalhes();
+}
+
+/** feedback no item após atualizar (a revalidação retira o app do mapa real) */
+function setAtualizadoNaLista(appId: string, msg: string): void {
+  const item = document.querySelector<HTMLElement>(`.atualizacao-item[data-app-id="${CSS.escape(appId)}"]`);
+  if (!item) return;
+  item.setAttribute("data-concluido", "1");
+  const btn = item.querySelector<HTMLButtonElement>("button[data-atualizar-app]");
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = msg.length > 24 ? "Concluído" : msg;
+  }
+}
+
+async function atualizarTudoPopup(): Promise<void> {
+  const botaoTudo = document.getElementById("btn-atualizar-tudo") as HTMLButtonElement | null;
+  const status = document.getElementById("atualizacoes-status");
+  if (!botaoTudo || botaoTudo.disabled) return;
+  const itens = Array.from(document.querySelectorAll<HTMLElement>("#atualizacoes-lista .atualizacao-item[data-app-id]:not([data-concluido])"));
+  if (itens.length === 0) return;
+  botaoTudo.disabled = true;
+  botaoTudo.textContent = "Atualizando tudo...";
+  itens.forEach((item) => {
+    const btn = item.querySelector<HTMLButtonElement>("button[data-atualizar-app]");
+    if (btn) btn.disabled = true;
+  });
+  let falhas = 0;
+  for (const item of itens) {
+    const appId = item.dataset.appId ?? "";
+    const registro = atualizacoesMap.get(appId);
+    if (!registro) continue;
+    if (status) status.textContent = `Atualizando ${registro.nome}...`;
+    try {
+      const msg = await invoke<string>("app_action", { appId, acao: "atualizar", fonte: registro.fonte });
+      setAtualizadoNaLista(appId, msg);
+    } catch (e) {
+      falhas += 1;
+      console.error(`Falha ao atualizar ${registro.nome}:`, e);
+    }
+  }
+  if (status) status.textContent = falhas > 0 ? `Concluído, com ${falhas} falha(s).` : "Concluído.";
+  if (botaoTudo) {
+    botaoTudo.disabled = false;
+    botaoTudo.textContent = "Atualizar tudo";
+  }
+  window.dispatchEvent(new Event("estado-apps-mudou"));
+  invalidarDetalhes();
 }
 
 function inserirCardAddCompat(): void {
   const grid = document.getElementById("ov-compat");
   if (!grid) return;
   const add = document.createElement("div");
-  add.className = "tool-tile tool-tile--add";
-  add.setAttribute("aria-label", "Adicionar compatibilidade");
+  add.className = "app-card app-card--add";
+  add.setAttribute("role", "button");
+  add.setAttribute("tabindex", "0");
+  add.setAttribute("aria-label", "Adicionar ferramenta de compatibilidade (Wine ou Proton)");
   add.innerHTML = `
     <span aria-hidden="true">+</span>
-    <span class="tool-tile__name" style="min-height:0">Adicionar</span>
+    <span class="apps-add-nome">Adicionar</span>
   `;
   grid.appendChild(add);
 }
@@ -342,6 +559,11 @@ function detalhePromise(appId: string): Promise<AppDetail | null> {
   return promise;
 }
 
+/** reinícios de estado (instalação/remoção) invalidam o cache de detalhes no frontend */
+export function invalidarDetalhes(): void {
+  detalhesPromiseCache.clear();
+}
+
 function rotuloFonte(fonte: string): string {
   if (fonte === "flatpak") return "Flatpak";
   if (fonte === "flatpak-user") return "Flatpak (usuário)";
@@ -350,38 +572,48 @@ function rotuloFonte(fonte: string): string {
   return fonte;
 }
 
-async function popularizarCartao(tile: HTMLElement): Promise<void> {
+async function popularizarConteudo(tile: HTMLElement, entry: AppEntry): Promise<void> {
   const appId = tile.dataset.appId ?? "";
   if (!appId) return;
   const detalhe = await detalhePromise(appId);
-  const acoes = tile.querySelector<HTMLElement>(".app-card__acoes");
-  if (!acoes || !detalhe) return;
+  const rodape = tile.querySelector<HTMLElement>(".app-card__rodape");
+  if (!rodape || !detalhe) return;
   const algumInstalado = detalhe.fontes.some((f) => f.instalado);
   const fonteInstalada = detalhe.fontes.find((f) => f.instalado) ?? null;
   const fontesOfertaveis = detalhe.fontes.filter((f) => f.disponivel && !f.instalado);
   const semOpcoes = !algumInstalado && fontesOfertaveis.length === 0;
-  const gui = Boolean(detalhe.gui) && algumInstalado && Boolean(fonteInstalada);
+  // estado gui: no modal, "Abrir" só aparece com fonte instalada
+  const guiAberta = Boolean(detalhe.gui) && algumInstalado && Boolean(fonteInstalada);
   const temAtualizacao =
     Boolean(fonteInstalada && fonteInstalada.versaoRepo && fonteInstalada.versaoRepo !== fonteInstalada.versao);
 
-  const btnInstalar = acoes.querySelector<HTMLButtonElement>("[data-app-acao='instalar']");
-  const btnAtualizar = acoes.querySelector<HTMLButtonElement>("[data-app-acao='atualizar']");
-  const btnRemover = acoes.querySelector<HTMLButtonElement>("[data-app-acao='remover']");
-  const btnAbrir = acoes.querySelector<HTMLButtonElement>("[data-app-acao='abrir']");
-  const wrapper = acoes.querySelector<HTMLElement>("[data-fonte-wrapper]");
-  const menu = tile.querySelector<HTMLElement>("[data-fonte-menu]");
-
-  if (btnInstalar) {
-    btnInstalar.style.display = algumInstalado || semOpcoes ? "none" : "inline-flex";
-    if (!algumInstalado) btnInstalar.dataset.fonte = fontesOfertaveis[0]?.fonte ?? "";
+  // registro de atualizações reais (usado pelo indicador e pelo popup "Atualizações")
+  if (temAtualizacao && fonteInstalada) {
+    atualizacoesMap.set(appId, {
+      nome: entry.name,
+      fonte: fonteInstalada.fonte,
+      versao: fonteInstalada.versao ?? "",
+      versaoRepo: fonteInstalada.versaoRepo ?? "",
+    });
+  } else {
+    atualizacoesMap.delete(appId);
   }
+  setText("#apps-atualizacoes", String(atualizacoesMap.size));
+
+  const btnPrincipal = rodape.querySelector<HTMLButtonElement>(
+    ".app-card__controles .btn--primary:not(.fonte-dropdown-btn)",
+  );
+  const wrapper = rodape.querySelector<HTMLElement>("[data-fonte-wrapper]");
+  const menu = tile.querySelector<HTMLElement>("[data-fonte-menu]");
+  const chooser = wrapper?.querySelector<HTMLButtonElement>("[data-fonte-chooser]");
+
   if (wrapper) {
     wrapper.style.display = !algumInstalado && fontesOfertaveis.length > 1 ? "inline-block" : "none";
   }
-  const btnChooser = wrapper?.querySelector<HTMLButtonElement>("[data-fonte-chooser]");
-  if (btnChooser && menu) {
-    btnChooser.addEventListener("click", () => {
-      menu.toggleAttribute("hidden");
+  if (chooser && menu) {
+    chooser.addEventListener("click", () => {
+      const menuFechado = menu.toggleAttribute("hidden");
+      chooser.setAttribute("aria-expanded", menuFechado ? "false" : "true");
     });
   }
   if (menu && fontesOfertaveis.length > 1) {
@@ -393,8 +625,7 @@ async function popularizarCartao(tile: HTMLElement): Promise<void> {
       item.dataset.fonte = f.fonte;
       item.textContent = rotuloFonte(f.fonte);
       item.addEventListener("click", () => {
-        const inst = tile.querySelector<HTMLButtonElement>("[data-app-acao='instalar']");
-        if (inst) inst.dataset.fonte = f.fonte;
+        if (btnPrincipal) btnPrincipal.dataset.fonte = f.fonte;
         const label = wrapper?.querySelector<HTMLElement>("[data-fonte-label]");
         if (label) label.textContent = rotuloFonte(f.fonte);
         if (menu) menu.setAttribute("hidden", "");
@@ -403,90 +634,104 @@ async function popularizarCartao(tile: HTMLElement): Promise<void> {
     });
   }
 
-  if (btnAtualizar) {
-    btnAtualizar.style.display = algumInstalado && temAtualizacao ? "inline-flex" : "none";
-    btnAtualizar.textContent = temAtualizacao ? "Atualizar" : "Atualizado";
-    btnAtualizar.dataset.fonte = fonteInstalada?.fonte ?? "";
-  }
-  if (btnRemover) {
-    btnRemover.style.display = algumInstalado ? "inline-flex" : "none";
-    btnRemover.dataset.fonte = fonteInstalada?.fonte ?? "";
-    btnRemover.disabled = !fonteInstalada;
-  }
-  if (btnAbrir) {
-    btnAbrir.style.display = gui ? "inline-flex" : "none";
+  // ação principal contextual: Instalar / Atualizar / Abrir conforme o estado real
+  if (btnPrincipal) {
+    if (!algumInstalado && fontesOfertaveis.length > 0) {
+      btnPrincipal.textContent = "Instalar";
+      btnPrincipal.dataset.appAcao = "instalar";
+      btnPrincipal.dataset.fonte = fontesOfertaveis[0]?.fonte ?? "";
+      btnPrincipal.style.display = "inline-flex";
+    } else if (algumInstalado && temAtualizacao) {
+      btnPrincipal.textContent = "Atualizar";
+      btnPrincipal.dataset.appAcao = "atualizar";
+      btnPrincipal.dataset.fonte = fonteInstalada?.fonte ?? "";
+      btnPrincipal.style.display = "inline-flex";
+    } else if (algumInstalado && guiAberta) {
+      btnPrincipal.textContent = "Abrir";
+      btnPrincipal.dataset.appAcao = "abrir";
+      btnPrincipal.style.display = "inline-flex";
+    } else {
+      btnPrincipal.style.display = "none";
+    }
   }
 
   const status = tile.querySelector<HTMLElement>(".app-card__status");
   if (status) {
     status.textContent = semOpcoes
       ? detalhe.fontes.some((f) => f.indeterminado)
-        ? "Não foi possível verificar as fontes agora (falha temporária) — recarregue os detalhes para tentar novamente."
+        ? "Não foi possível verificar as fontes agora (falha temporária) — abra o gerenciamento para tentar novamente."
         : "Não encontrado em nenhuma fonte compatível com este sistema."
       : "";
   }
 }
 
-function renderTiles(entries: AppEntry[], gridId: string, emptyMsg: string): void {
+function renderTiles(
+  entries: AppEntry[],
+  gridId: string,
+  emptyMsg: string,
+  msgSemResultado: string,
+): void {
   const grid = document.getElementById(gridId);
   if (!grid) return;
   grid.innerHTML = "";
   if (!entries || entries.length === 0) {
-    grid.innerHTML = `<p class="muted tools-grid__empty">${esc(emptyMsg)}</p>`;
+    grid.innerHTML = `<p class="muted apps-grid__vazio">${esc(termoBusca.trim() ? msgSemResultado : emptyMsg)}</p>`;
     return;
   }
-  // o card "+" (adicionar compatibilidade) é exclusivo do grid de compatibilidade
+  // ferramentas de compatibilidade mantêm apenas o fluxo próprio (modal "Adicionar"/detalhe)
   const comAcoes = gridId !== "ov-compat";
   entries.forEach((entry, i) => {
     const estado = entry.estado ?? (entry.available ? "instalado" : "nao_instalado");
     const rotuloEstado =
       estado === "instalado"
-        ? `✔ Instalado${entry.formato ? ` · ${entry.formato}` : ""}`
+        ? "Instalado"
         : estado === "desconhecido"
           ? "Verificação indisponível"
           : "Não instalado";
-    const tile = document.createElement("div");
-    tile.className = `tool-tile tool-tile--card${estado === "instalado" ? "" : " tool-tile--off"}`;
+    const appId = esc(entry.id ?? "");
+    const tile = document.createElement("article");
+    tile.className = "app-card";
     tile.dataset.appId = entry.id ?? "";
+    tile.setAttribute("role", "listitem");
     const iconHtml = entry.icon
-      ? `<span class="tool-tile__icon" aria-hidden="true"><img class="tool-tile__img" src="${esc(entry.icon)}" alt=""></span>`
-      : `<span class="tool-tile__icon tool-tile__icon--purple" aria-hidden="true">${esc(inicial(entry.name, i))}</span>`;
+      ? `<span class="app-card__icon" aria-hidden="true"><img src="${esc(entry.icon)}" alt=""></span>`
+      : `<span class="app-card__icon app-card__icon--grad" aria-hidden="true">${esc(inicial(entry.name, i))}</span>`;
     const versionHtml =
       estado === "instalado" && entry.version
-        ? ` <span class="tool-tile__version num">${esc(entry.version)}</span>`
+        ? `<span class="app-card__versao num">${esc(entry.version)}</span>`
         : "";
-    tile.innerHTML = `
-      <div class="app-card__cabecalho">
-        ${iconHtml}
-        <div class="app-card__info">
-          <span class="tool-tile__name">${esc(entry.name)}${versionHtml}</span>
-          <p class="app-card__desc">${esc(entry.description)}</p>
-          <span class="tool-tile__status ${estado === "instalado" ? "" : "tool-tile__status--off"}">
-            ${esc(rotuloEstado)}
-          </span>
-        </div>
-      </div>
-      ${comAcoes ? `
-      <div class="app-card__acoes">
-        <button class="btn btn--primary" type="button" data-app-acao="instalar" data-app-id="${esc(entry.id ?? "")}" data-fonte="" hidden>Instalar</button>
+    // selo de estado do próprio card, uniforme no canto inferior direito
+    const seloEstado = `<span class="pill ${estado === "instalado" ? "pill--ok" : "pill--warn"}">${esc(rotuloEstado)}</span>`;
+    const controlesHtml = comAcoes
+      ? `
+        <button class="btn btn--primary" type="button" data-app-id="${appId}" data-fonte="" hidden></button>
         <div class="fonte-dropdown-wrapper" data-fonte-wrapper hidden>
-          <button type="button" class="btn btn--primary fonte-dropdown-btn" data-fonte-chooser="1" data-app-id="${esc(entry.id ?? "")}">
+          <button type="button" class="btn btn--primary fonte-dropdown-btn" data-fonte-chooser="1" data-app-id="${appId}" aria-haspopup="true" aria-expanded="false">
             <span data-fonte-label>Flatpak</span>
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
           </button>
           <div class="fonte-dropdown-menu" data-fonte-menu hidden></div>
         </div>
-        <button class="btn btn--ghost" type="button" data-app-acao="atualizar" data-app-id="${esc(entry.id ?? "")}" data-fonte="" hidden>Atualizar</button>
-        <button class="btn btn--ghost" type="button" data-app-acao="remover" data-app-id="${esc(entry.id ?? "")}" data-fonte="" hidden>Remover</button>
-        <button class="btn btn--primary" type="button" data-app-acao="abrir" data-app-id="${esc(entry.id ?? "")}" hidden>Abrir</button>
-        <p class="field__status app-card__status" data-app-id="${esc(entry.id ?? "")}">&nbsp;</p>
+      `
+      : "";
+    tile.innerHTML = `
+      <div class="app-card__topo">
+        ${iconHtml}
+        <div class="app-card__titulos">
+          <h3 class="app-card__nome">${esc(entry.name)}${versionHtml}</h3>
+        </div>
       </div>
-      ` : ""}
+      <p class="app-card__desc">${esc(entry.description)}</p>
+      <div class="app-card__rodape">
+        <p class="field__status app-card__status" aria-live="polite"></p>
+        <div class="app-card__controles">${controlesHtml}</div>
+        ${seloEstado}
+      </div>
     `;
     grid.appendChild(tile);
     if (comAcoes) {
-      popularizarCartao(tile).catch(() => {
-        /* falhas de detalhe não devem interromper a renderização do card */
+      popularizarConteudo(tile, entry).catch(() => {
+        /* falha de detalhe não deve interromper a renderização do catálogo */
       });
     }
   });

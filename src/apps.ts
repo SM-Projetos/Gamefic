@@ -1,6 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { mostrarPagina } from "./nav";
 import { overlayAtivo } from "./overlay";
+import { invalidarDetalhes } from "./system";
 
 export interface FonteInfo {
   fonte: string;
@@ -112,7 +113,7 @@ function abrirDetalheCompat(id: string, tile: HTMLElement): void {
   const scrim = document.getElementById("app-manager-scrim");
   if (!card || !scrim) return;
 
-  const nomeTile = tile.querySelector<HTMLElement>(".tool-tile__name")?.textContent?.trim()
+  const nomeTile = tile.querySelector<HTMLElement>(".app-card__nome")?.textContent?.trim()
     ?? tile.textContent?.trim()
     ?? id;
   const titulo = document.getElementById("app-manager-title");
@@ -235,7 +236,7 @@ function removerWineDoDetalhe(pkg: string, botao: HTMLButtonElement): void {
       if (status) status.textContent = msg ?? "Removido";
       carregarForks();
       revalidarEstados();
-      abrirDetalheCompat("wine", document.querySelector<HTMLElement>("#ov-compat .tool-tile[data-app-id='wine']") ?? document.createElement("div"));
+      abrirDetalheCompat("wine", document.querySelector<HTMLElement>("#ov-compat .app-card[data-app-id='wine']") ?? document.createElement("div"));
     })
     .catch((e) => {
       if (status) status.textContent = `Erro ao remover: ${String(e)}`;
@@ -415,6 +416,8 @@ function atualizarEstadoEntrada(): void {
 }
 
 function revalidarEstados(): void {
+  // estados mudaram (instalação/remoção/atualização): detalhes não valem mais
+  invalidarDetalhes();
   // avisa a listagem geral para recarregar o estado real (§3.3)
   window.dispatchEvent(new Event("estado-apps-mudou"));
 }
@@ -439,7 +442,7 @@ function executarAcao(acao: "instalar" | "atualizar" | "remover"): void {
 
 /// ações vindas dos cards da visão geral: rodam no próprio card, sem abrir a janela de detalhes
 function executarAcaoCard(botao: HTMLButtonElement): void {
-  const tile = botao.closest<HTMLElement>(".tool-tile");
+  const tile = botao.closest<HTMLElement>(".app-card");
   const id = botao.dataset.appId || tile?.dataset.appId || "";
   const status = tile?.querySelector<HTMLElement>(".app-card__status") ?? null;
   if (!tile || !status || !id) return;
@@ -478,20 +481,40 @@ export function wireAppClicks(): void {
         executarAcaoCard(acaoBotao);
         return;
       }
+      // o seletor de fonte (chooser) controla o menu via listener próprio; não deve abrir a janela
       const chooser = target.closest<HTMLButtonElement>("button[data-fonte-chooser]");
       if (chooser) {
         ev.stopPropagation();
         return;
       }
-      const tile = target.closest<HTMLElement>(".tool-tile");
+      const tile = target.closest<HTMLElement>(".app-card");
       if (!tile) return;
-      if (tile.classList.contains("tool-tile--add")) {
+      if (tile.classList.contains("app-card--add")) {
         abrirModalCompat();
         return;
       }
       const id = tile.dataset.appId;
       if (gid === "ov-compat") {
         if (id) abrirDetalheCompat(id, tile);
+        return;
+      }
+      if (id && !id.startsWith("proton:")) abrirApp(id);
+    });
+    // navegação por teclado: Enter/Espaço no card abre o gerenciamento
+    grid.addEventListener("keydown", (ev) => {
+      if (ev.key !== "Enter" && ev.key !== " ") return;
+      const alvo = ev.target as HTMLElement;
+      if (alvo.closest("button")) return;
+      const card = alvo.closest<HTMLElement>(".app-card");
+      if (!card) return;
+      ev.preventDefault();
+      if (card.classList.contains("app-card--add")) {
+        abrirModalCompat();
+        return;
+      }
+      const id = card.dataset.appId;
+      if (gid === "ov-compat") {
+        if (id) abrirDetalheCompat(id, card);
         return;
       }
       if (id && !id.startsWith("proton:")) abrirApp(id);
@@ -517,7 +540,7 @@ export function wireAppClicks(): void {
     if (!modal || modal.hidden) return;
     const target = ev.target as HTMLElement;
     // não interfere em cliques em elementos que abrem o modal
-    if (target.closest(".tool-tile--add")) return;
+    if (target.closest(".app-card--add")) return;
     // fecha se o clique não for dentro do diálogo
     if (!target.closest(".modal")) {
       ocultarModalCompat();
