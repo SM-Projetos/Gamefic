@@ -23,6 +23,9 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/), 
 - Método de consulta de remotos Flatpak reais (`flatpak remotes`): disponibilidade concedida apenas por confirmação do remoto configurado, sem presumir flathub.
 - Novos testes: mapeamento por família de catálogo, snap verificado, parser de remotos, idioma localizado e estados de consulta.
 
+### Modificado
+- Interface da aba Apps reformulada: launchers, emuladores e ferramentas aparecem agora em cards grandes com ícone, nome, versão, descrição curta, estado (instalado ou não) e as ações no próprio card (Instalar com seletor de fonte Flatpak/Snap/nativo, Abrir, Atualizar — habilitado só quando há versão nova no repositório — e Remover, cada um com o feedback dentro do card). A janela de detalhes do aplicativo segue disponível ao clicar no card; as ferramentas de compatibilidade (Wine/Proton) mantêm o fluxo próprio pelo modal existente.
+
 ### Corrigido
 - Consultas bem-sucedidas sem análise multi-idioma (`Versão:` PT-BR e `Version:`), evitando esconder fontes disponíveis do Flatpak em sistemas em português.
 - Diferenciação de ausência confirmada, remoto ausente no escopo, falha de consulta (ex.: rede) e snapd parado; falhas temporárias mostram novo estado "indeterminado" na interface
