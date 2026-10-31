@@ -22,16 +22,17 @@
 
 .brand {
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: var(--space-3);
-  padding: var(--space-2) var(--space-3) var(--space-5);
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-2) var(--space-5);
 }
 
 .brand__mark {
-  width: 32px;
-  height: 32px;
-  border-radius: 10px;
-  background: linear-gradient(135deg, var(--accent-purple), var(--accent-cyan));
+  width: 72px;
+  height: 72px;
+  border-radius: 18px;
+  background: url("../assets/brand/gamefic.png") center / cover no-repeat;
   box-shadow: var(--glow-accent);
 }
 
@@ -39,10 +40,7 @@
   font-size: 22px;
   font-weight: var(--weight-bold);
   letter-spacing: 0.5px;
-}
-
-.brand {
-  padding-bottom: var(--space-4);
+  text-align: center;
 }
 
 .nav {
@@ -107,6 +105,36 @@
   display: flex;
   align-items: center;
   gap: var(--space-3);
+}
+
+/* botão "Atualizações" da topbar: menor, persistente em todas as abas */
+.btn-atualizacoes-topbar {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 6px var(--space-3);
+  border: var(--border-width) solid var(--border);
+  border-radius: var(--radius-control);
+  background: transparent;
+  color: var(--text-dim);
+  font-size: var(--text-small);
+  font-weight: var(--weight-medium);
+  cursor: pointer;
+  transition: color var(--t-fast), border-color var(--t-fast), background var(--t-fast);
+}
+
+.btn-atualizacoes-topbar .num {
+  min-width: 1.2em;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--accent-amber);
+  font-weight: var(--weight-semibold);
+}
+
+.btn-atualizacoes-topbar:hover {
+  color: var(--text);
+  border-color: var(--text-dim);
 }
 
 .icon-btn {

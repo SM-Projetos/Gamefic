@@ -96,6 +96,10 @@ export interface SystemSnapshot {
   launchers: AppEntry[];
   emuladores: AppEntry[];
   compatibilidade: AppEntry[];
+  criacaoGravacao: AppEntry[];
+  criacaoVideo: AppEntry[];
+  criacaoAudio: AppEntry[];
+  criacaoSocial: AppEntry[];
 }
 
 export const INDISPONIVEL = "Não disponível";
@@ -119,7 +123,7 @@ export function temperatura(celsius: number): string {
 }
 
 let ultimoCatalogo: SystemSnapshot | null = null;
-let termoBusca = "";
+// (busca do catálogo removida — renderTiles mantém o termo por compatibilidade)
 let appsUIwired = false;
 
 interface InfoAtualizacao {
@@ -154,40 +158,39 @@ export function appsEstadoLimpar(): void {
   document.getElementById("apps-estado")?.setAttribute("hidden", "");
 }
 
-function entradasTotais(snapshot: SystemSnapshot): AppEntry[] {
-  return [
-    ...snapshot.launchers,
-    ...snapshot.emuladores,
-    ...snapshot.tools,
-    ...snapshot.compatibilidade,
-  ];
+/** contador único da topbar: total de atualizações disponíveis (aba Apps +
+ * Criação de Conteúdo); recomputado a cada mudança do mapa real */
+function comporContadorAtualizacoes(): void {
+  setText("#topbar-atualizacoes", String(atualizacoesMap.size));
 }
 
-function atualizarIndicadores(snapshot: SystemSnapshot): void {
-  const todas = entradasTotais(snapshot);
-  const instaladas = todas.filter(
-    (e) => (e.estado ?? (e.available ? "instalado" : "nao_instalado")) === "instalado",
-  ).length;
-  setText("#apps-total", String(todas.length));
-  setText("#apps-instalados", String(instaladas));
-  setText("#apps-atualizacoes", String(atualizacoesMap.size));
+function atualizarIndicadores(_snapshot: SystemSnapshot): void {
+  comporContadorAtualizacoes();
+}
+
+/** registra no mapa real que o app saiu da fila de atualizações (sucesso na
+ * ação) e refresca o contador imediatamente, sem esperar o re-render geral */
+function retirarAtualizacao(appId: string): void {
+  if (atualizacoesMap.delete(appId)) comporContadorAtualizacoes();
+}
+
+/** usado também pelo fluxo da janela "Gerenciar" (apps.ts) */
+export function notificarAtualizacaoFeita(appId: string): void {
+  retirarAtualizacao(appId);
 }
 
 function renderCatalogo(): void {
   if (!ultimoCatalogo) return;
   atualizacoesMap.clear(); // recontada conforme os detalhes de cada card chegam
-  const termo = termoBusca.trim().toLowerCase();
-  const filtrar = (lista: AppEntry[]) =>
-    termo
-      ? lista.filter((e) => `${e.name} ${e.description}`.toLowerCase().includes(termo))
-      : lista;
-  const msgSemResultado = termo
-    ? `Nenhum resultado para “${termoBusca.trim()}” nesta categoria.`
-    : "";
-  renderTiles(filtrar(ultimoCatalogo.launchers), "ov-launchers", "Nenhum launcher instalado", msgSemResultado);
-  renderTiles(filtrar(ultimoCatalogo.emuladores), "ov-emul", "Nenhum emulador detectado", msgSemResultado);
-  renderTiles(filtrar(ultimoCatalogo.tools), "ov-tools", "Nenhuma ferramenta de jogos detectada", msgSemResultado);
-  renderTiles(filtrar(ultimoCatalogo.compatibilidade), "ov-compat", "Nenhuma ferramenta de compatibilidade detectada", msgSemResultado);
+  renderTiles(ultimoCatalogo.launchers, "ov-launchers", "Nenhum launcher instalado", "");
+  renderTiles(ultimoCatalogo.emuladores, "ov-emul", "Nenhum emulador detectado", "");
+  renderTiles(ultimoCatalogo.tools, "ov-tools", "Nenhuma ferramenta de jogos detectada", "");
+  renderTiles(ultimoCatalogo.compatibilidade, "ov-compat", "Nenhuma ferramenta de compatibilidade detectada", "");
+  // aba Criação de Conteúdo: mesmos cards e funções da aba Apps
+  renderTiles(ultimoCatalogo.criacaoGravacao ?? [], "ov-criacao-gravacao", "Nenhum aplicativo de gravação e stream no catálogo", "");
+  renderTiles(ultimoCatalogo.criacaoVideo ?? [], "ov-criacao-video", "Nenhum aplicativo de vídeo no catálogo", "");
+  renderTiles(ultimoCatalogo.criacaoAudio ?? [], "ov-criacao-audio", "Nenhum aplicativo de áudio no catálogo", "");
+  renderTiles(ultimoCatalogo.criacaoSocial ?? [], "ov-criacao-social", "Nenhum aplicativo social no catálogo", "");
   inserirCardAddCompat();
   atualizarIndicadores(ultimoCatalogo);
   sincronizarModalAtualizacoes();
@@ -196,14 +199,10 @@ function renderCatalogo(): void {
 function wireAppsUI(): void {
   if (appsUIwired) return;
   appsUIwired = true;
-  document.getElementById("apps-busca")?.addEventListener("input", (ev) => {
-    termoBusca = (ev.target as HTMLInputElement).value;
-    renderCatalogo();
-  });
 
-  const botaoAtualizacoes = document.getElementById("apps-botao-atualizacoes");
   const scrim = document.getElementById("modal-atualizacoes");
-  botaoAtualizacoes?.addEventListener("click", abrirModalAtualizacoes);
+  // botão persistente da topbar (visível em todas as abas)
+  document.getElementById("btn-atualizacoes-topbar")?.addEventListener("click", abrirModalAtualizacoes);
   document.getElementById("btn-fechar-atualizacoes")?.addEventListener("click", () => {
     scrim?.setAttribute("hidden", "");
   });
@@ -285,7 +284,9 @@ async function atualizarAppPopup(appId: string, fonte: string, botao: HTMLButton
   try {
     const msg = await invoke<string>("app_action", { appId, acao: "atualizar", fonte });
     if (status) status.textContent = msg;
+    // sucesso: o app sai da fila e o contador da topbar refresca na hora
     setAtualizadoNaLista(appId, msg);
+    retirarAtualizacao(appId);
   } catch (e) {
     if (status) status.textContent = `Erro: ${String(e)}`;
     botao.disabled = false;
@@ -328,6 +329,7 @@ async function atualizarTudoPopup(): Promise<void> {
     try {
       const msg = await invoke<string>("app_action", { appId, acao: "atualizar", fonte: registro.fonte });
       setAtualizadoNaLista(appId, msg);
+      retirarAtualizacao(appId);
     } catch (e) {
       falhas += 1;
       console.error(`Falha ao atualizar ${registro.nome}:`, e);
@@ -564,6 +566,16 @@ export function invalidarDetalhes(): void {
   detalhesPromiseCache.clear();
 }
 
+/** acesso ao cache de detalhes compartilhado (cards × janela de gerenciamento) */
+export function detalheDe(appId: string): Promise<AppDetail | null> {
+  return detalhePromise(appId);
+}
+
+/** resultado de revalidação em segundo plano alimenta cards e janela */
+export function armazenarDetalhe(appId: string, d: AppDetail): void {
+  detalhesPromiseCache.set(appId, Promise.resolve(d));
+}
+
 function rotuloFonte(fonte: string): string {
   if (fonte === "flatpak") return "Flatpak";
   if (fonte === "flatpak-user") return "Flatpak (usuário)";
@@ -598,7 +610,7 @@ async function popularizarConteudo(tile: HTMLElement, entry: AppEntry): Promise<
   } else {
     atualizacoesMap.delete(appId);
   }
-  setText("#apps-atualizacoes", String(atualizacoesMap.size));
+  comporContadorAtualizacoes();
 
   const btnPrincipal = rodape.querySelector<HTMLButtonElement>(
     ".app-card__controles .btn--primary:not(.fonte-dropdown-btn)",
@@ -670,12 +682,13 @@ function renderTiles(
   gridId: string,
   emptyMsg: string,
   msgSemResultado: string,
+  termo: string = "",
 ): void {
   const grid = document.getElementById(gridId);
   if (!grid) return;
   grid.innerHTML = "";
   if (!entries || entries.length === 0) {
-    grid.innerHTML = `<p class="muted apps-grid__vazio">${esc(termoBusca.trim() ? msgSemResultado : emptyMsg)}</p>`;
+    grid.innerHTML = `<p class="muted apps-grid__vazio">${esc(termo.trim() ? msgSemResultado : emptyMsg)}</p>`;
     return;
   }
   // ferramentas de compatibilidade mantêm apenas o fluxo próprio (modal "Adicionar"/detalhe)

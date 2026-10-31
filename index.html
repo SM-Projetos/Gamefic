@@ -25,6 +25,10 @@
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>
             Apps
           </button>
+          <button class="nav__item" data-tab="criacao" type="button">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="m10 9 5 3-5 3z"/></svg>
+            Criação de Conteúdo
+          </button>
           <button class="nav__item" data-tab="desempenho" type="button">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h4l2.5-7 5 14 2.5-7h4"/></svg>
             Monitor do Sistema
@@ -59,6 +63,10 @@
         <div class="topbar__status">
           <span id="status-indicator"><span class="pill pill--info" title="Estado da detecção">Detecção não iniciada</span></span>
         </div>
+        <button class="btn-atualizacoes-topbar" id="btn-atualizacoes-topbar" title="Aplicativos instalados com atualização disponível no repositório" type="button">
+          Atualizações
+          <span class="num" id="topbar-atualizacoes">—</span>
+        </button>
         <button class="icon-btn" id="btn-settings" aria-label="Configurações" title="Configurações">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.87l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.7 1.7 0 0 0-1.87-.34 1.7 1.7 0 0 0-1.03 1.56V21a2 2 0 1 1-4 0v-.09a1.7 1.7 0 0 0-1.03-1.56 1.7 1.7 0 0 0-1.87.34l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-1.56-1.03H3a2 2 0 1 1 0-4h.09A1.7 1.7 0 0 0 4.6 8.94a1.7 1.7 0 0 0-.34-1.87l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.7 1.7 0 0 0 1.87.34h.09a1.7 1.7 0 0 0 1.03-1.55V3a2 2 0 1 1 4 0v.09a1.7 1.7 0 0 0 1.03 1.56 1.7 1.7 0 0 0 1.87-.34l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.7 1.7 0 0 0-.34 1.87v.09c.22.63.79 1.06 1.46 1.03H21a2 2 0 1 1 0 4h-.09a1.7 1.7 0 0 0-1.51 1.03Z"/></svg>
         </button>
@@ -69,27 +77,7 @@
           <header class="apps-head">
             <div class="apps-head__texto">
               <h1 class="page-title">Apps</h1>
-              <p class="page-desc">Catálogo de launchers, emuladores, ferramentas e ferramentas de compatibilidade para jogos.</p>
-            </div>
-            <div class="apps-head__lateral">
-              <div class="apps-indicadores" role="status" aria-live="polite" aria-label="Indicadores do catálogo">
-                <span class="apps-indicador" title="Aplicativos visíveis no catálogo">
-                  <span class="apps-indicador__valor num" id="apps-total">—</span>
-                  <span class="apps-indicador__rotulo">No catálogo</span>
-                </span>
-                <span class="apps-indicador apps-indicador--ok" title="Aplicativos instalados">
-                  <span class="apps-indicador__valor num" id="apps-instalados">—</span>
-                  <span class="apps-indicador__rotulo">Instalados</span>
-                </span>
-                <button class="apps-indicador apps-indicador--warn apps-indicador--btn" title="Instalados com atualização disponível no repositório" id="apps-botao-atualizacoes" type="button">
-                  <span class="apps-indicador__valor num" id="apps-atualizacoes">—</span>
-                  <span class="apps-indicador__rotulo">Atualizações</span>
-                </button>
-              </div>
-              <label class="apps-busca">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
-                <input type="search" id="apps-busca" placeholder="Buscar aplicativo…" aria-label="Buscar aplicativo no catálogo" autocomplete="off" />
-              </label>
+              <p class="page-desc">Gerencie e instale aplicativos essenciais para jogos no Linux, incluindo launchers, emuladores e ferramentas para aprimorar sua experiência gamer.</p>
             </div>
           </header>
 
@@ -125,11 +113,56 @@
             </div>
           </section>
 
-          <section aria-labelledby="apps-titulo-compat">
+           <section aria-labelledby="apps-titulo-compat">
             <div class="apps-categoria-head">
               <h2 class="page__section-title" id="apps-titulo-compat" style="margin-top: var(--space-5);">Compatibilidade</h2>
             </div>
             <div class="apps-grid" id="ov-compat">
+              <p class="muted apps-grid__vazio">Consultando...</p>
+            </div>
+          </section>
+        </section>
+
+        <section class="page" id="page-criacao">
+          <header class="apps-head">
+            <div class="apps-head__texto">
+              <h1 class="page-title">Criação de Conteúdo</h1>
+              <p class="page-desc">Ferramentas para gravação de gameplay, transmissão ao vivo, edição de vídeos, captura de tela e produção de áudio.</p>
+            </div>
+          </header>
+
+          <section aria-labelledby="criacao-titulo-gravacao">
+            <div class="apps-categoria-head">
+              <h2 class="page__section-title" id="criacao-titulo-gravacao" style="margin-top: var(--space-5);">Gravação e Stream</h2>
+            </div>
+            <div class="apps-grid" id="ov-criacao-gravacao" role="list" aria-labelledby="criacao-titulo-gravacao">
+              <p class="muted apps-grid__vazio">Consultando...</p>
+            </div>
+          </section>
+
+          <section aria-labelledby="criacao-titulo-video">
+            <div class="apps-categoria-head">
+              <h2 class="page__section-title" id="criacao-titulo-video" style="margin-top: var(--space-5);">Vídeo</h2>
+            </div>
+            <div class="apps-grid" id="ov-criacao-video" role="list" aria-labelledby="criacao-titulo-video">
+              <p class="muted apps-grid__vazio">Consultando...</p>
+            </div>
+          </section>
+
+          <section aria-labelledby="criacao-titulo-audio">
+            <div class="apps-categoria-head">
+              <h2 class="page__section-title" id="criacao-titulo-audio" style="margin-top: var(--space-5);">Áudio</h2>
+            </div>
+            <div class="apps-grid" id="ov-criacao-audio" role="list" aria-labelledby="criacao-titulo-audio">
+              <p class="muted apps-grid__vazio">Consultando...</p>
+            </div>
+          </section>
+
+          <section aria-labelledby="criacao-titulo-social">
+            <div class="apps-categoria-head">
+              <h2 class="page__section-title" id="criacao-titulo-social" style="margin-top: var(--space-5);">Social</h2>
+            </div>
+            <div class="apps-grid" id="ov-criacao-social" role="list" aria-labelledby="criacao-titulo-social">
               <p class="muted apps-grid__vazio">Consultando...</p>
             </div>
           </section>

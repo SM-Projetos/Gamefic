@@ -17,7 +17,7 @@ pub mod vulkan;
 
 use serde::Serialize;
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CpuInfo {
     pub model: Option<String>,
@@ -29,7 +29,7 @@ pub struct CpuInfo {
     pub usage_percent: Option<f32>,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct MemoryInfo {
     pub total_kb: Option<u64>,
@@ -39,7 +39,7 @@ pub struct MemoryInfo {
     pub swap_used_kb: Option<u64>,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct GpuInfo {
     pub pci_address: Option<String>,
@@ -51,20 +51,20 @@ pub struct GpuInfo {
     pub driver_version: Option<String>,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct VulkanGpu {
     pub device_name: Option<String>,
     pub driver_name: Option<String>,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct VulkanInfo {
     pub gpus: Vec<VulkanGpu>,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SensorReading {
     pub chip: String,
@@ -72,7 +72,7 @@ pub struct SensorReading {
     pub celsius: f32,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct StorageDevice {
     pub name: String,
@@ -83,7 +83,7 @@ pub struct StorageDevice {
     pub total_bytes: Option<u64>,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ToolInfo {
     pub id: String,
@@ -94,7 +94,7 @@ pub struct ToolInfo {
     pub icon: Option<String>,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AppEntry {
     pub id: String,
@@ -109,7 +109,7 @@ pub struct AppEntry {
     pub formato: Option<String>,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct DistroInfo {
     pub name: String,
@@ -117,7 +117,7 @@ pub struct DistroInfo {
     pub family: Option<String>,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SystemSnapshot {
     pub distro: Option<DistroInfo>,
@@ -136,6 +136,10 @@ pub struct SystemSnapshot {
     pub launchers: Vec<AppEntry>,
     pub emuladores: Vec<AppEntry>,
     pub compatibilidade: Vec<AppEntry>,
+    pub criacao_gravacao: Vec<AppEntry>,
+    pub criacao_video: Vec<AppEntry>,
+    pub criacao_audio: Vec<AppEntry>,
+    pub criacao_social: Vec<AppEntry>,
 }
 
 pub fn snapshot() -> SystemSnapshot {
@@ -150,7 +154,7 @@ pub fn snapshot() -> SystemSnapshot {
             .and_then(|g| g.driver_version.clone())
     });
 
-    SystemSnapshot {
+    let snap = SystemSnapshot {
         distro: os::detect_distro(),
         uptime_seconds: os::detect_uptime_seconds(),
         storage: storage::detect(),
@@ -167,7 +171,49 @@ pub fn snapshot() -> SystemSnapshot {
         launchers: tools::launchers(),
         emuladores: tools::emuladores(),
         compatibilidade: tools::compatibility(),
+        criacao_gravacao: tools::criacao_gravacao(),
+        criacao_video: tools::criacao_video(),
+        criacao_audio: tools::criacao_audio(),
+        criacao_social: tools::criacao_social(),
+    };
+    snapshot_disco_salvar(&snap);
+    snap
+}
+
+// ---------- cache do último snapshot (tela abre já com os dados) ----------
+
+fn snapshot_disco_caminho() -> Option<std::path::PathBuf> {
+    let base = std::env::var("XDG_DATA_HOME")
+        .ok()
+        .filter(|v| !v.is_empty())
+        .or_else(|| std::env::var("HOME").ok().map(|h| format!("{h}/.local/share")))?;
+    Some(
+        std::path::PathBuf::from(base)
+            .join("com.sergio.gamefic")
+            .join("snapshot_cache.json"),
+    )
+}
+
+fn snapshot_disco_salvar(s: &SystemSnapshot) {
+    let Some(caminho) = snapshot_disco_caminho() else { return };
+    if let Ok(json) = serde_json::to_string(s) {
+        if let Some(dir) = caminho.parent() {
+            let _ = std::fs::create_dir_all(dir);
+        }
+        let tmp = caminho.with_extension("json.tmp");
+        if std::fs::write(&tmp, json).is_ok() {
+            let _ = std::fs::rename(&tmp, &caminho);
+        }
     }
+}
+
+/// último snapshot completo da execução anterior — alimentação imediata da
+/// tela; a detecção de verdade continua em background e substitui os dados
+pub fn snapshot_cache_rapido() -> Option<SystemSnapshot> {
+    let caminho = snapshot_disco_caminho()?;
+    std::fs::read_to_string(caminho)
+        .ok()
+        .and_then(|s| serde_json::from_str(&s).ok())
 }
 
 fn run(program: &str, args: &[&str]) -> std::io::Result<String> {

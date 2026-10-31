@@ -86,6 +86,17 @@ async fn get_app_detail(app_id: String) -> Option<system::install::AppDetail> {
         .flatten()
 }
 
+/// revalidação em segundo plano (com consulta de repositório): chamada pela
+/// interface ~10 s depois de abrir o gerenciador, atualiza as informações
+/// sem bloquear e não é executada na abertura
+#[tauri::command]
+async fn revalidar_detalhe(app_id: String) -> Option<system::install::AppDetail> {
+    tauri::async_runtime::spawn_blocking(move || system::install::revalidar(&app_id))
+        .await
+        .ok()
+        .flatten()
+}
+
 #[tauri::command]
 async fn app_action(app_id: String, acao: String, fonte: String) -> Result<String, String> {
     tauri::async_runtime::spawn_blocking(move || {
@@ -96,8 +107,7 @@ async fn app_action(app_id: String, acao: String, fonte: String) -> Result<Strin
 }
 
 #[tauri::command]
-async fn listar_compat_forks() -> serde_json::Value {
-    tauri::async_runtime::spawn_blocking(|| {
+async fn listar_compat_forks() -> serde_json::Value {    tauri::async_runtime::spawn_blocking(|| {
         let dados = serde_json::json!({
             "wines": system::install::forks_wine(),
             "protons": system::install::forks_proton(),
@@ -383,6 +393,13 @@ fn get_system_info() -> system::SystemSnapshot {
     system::snapshot()
 }
 
+/// último snapshot completo persistido em disco (execução anterior):
+/// alimenta a tela de imediato; a detecção fresca roda em background
+#[tauri::command]
+fn carregar_snapshot_cache() -> Option<system::SystemSnapshot> {
+    system::snapshot_cache_rapido()
+}
+
 #[tauri::command]
 fn abrir_app(
     app: tauri::AppHandle,
@@ -528,6 +545,16 @@ pub fn run() {
         .setup(|app| {
             use events::{EventCategory, EventResult};
 
+            // teto de segurança: se a interface não conseguir mostrar a janela
+            // (ex.: falha no frontend), ela aparece do mesmo jeito após 6 s
+            let handle = app.handle().clone();
+            std::thread::spawn(move || {
+                std::thread::sleep(std::time::Duration::from_secs(6));
+                if let Some(j) = handle.get_webview_window("main") {
+                    let _ = j.show();
+                }
+            });
+
             events::record(
                 app.handle(),
                 &app.state::<events::SharedEvents>().inner().clone(),
@@ -543,6 +570,7 @@ pub fn run() {
             get_setting,
             set_setting,
             get_system_info,
+            carregar_snapshot_cache,
             monitor::start_monitoring,
             monitor::stop_monitoring,
             monitor::get_history,
@@ -552,6 +580,7 @@ pub fn run() {
             get_system_info,
             refresh_tool_icons,
             get_app_detail,
+            revalidar_detalhe,
             app_action,
             listar_compat_forks,
             cache_compat_forks,

@@ -62,6 +62,20 @@ pub fn detect() -> Vec<ToolInfo> {
             "Winetricks dirigido por jogos Steam",
             &["/usr/share/icons/hicolor/256x256/apps/protontricks.png"],
         ),
+        (
+            "openrgb",
+            "OpenRGB",
+            either(Binario("openrgb"), PadraoFlatpak("org.openrgb.OpenRGB")),
+            "Controle de iluminação RGB",
+            &["/usr/share/icons/hicolor/256x256/apps/openrgb.png"],
+        ),
+        (
+            "oversteer",
+            "Oversteer",
+            PadraoFlatpak("io.github.berarma.Oversteer"),
+            "Gerente de volantes de corrida",
+            &["/usr/share/icons/hicolor/256x256/apps/io.github.berarma.Oversteer.png"],
+        ),
     ];
 
     definition
@@ -135,6 +149,159 @@ pub fn launchers() -> Vec<AppEntry> {
     definition
         .iter()
         .map(|(key, name, _availability, description, icons)| {
+            let estado = estado_instalacao(key);
+            AppEntry {
+                id: (*key).to_string(),
+                name: (*name).to_string(),
+                description: (*description).to_string(),
+                available: estado.estado == "instalado",
+                version: estado.versao.clone(),
+                icon: icone_data_uri(key, icons),
+                estado: estado.estado.clone(),
+                formato: estado.formato,
+            }
+        })
+        .collect()
+}
+
+/// entradas de criação de conteúdo, no mesmo formato dos cards de Apps;
+/// estado/versão via `estado_instalacao` (REGISTRY + consulta local viva)
+pub fn criacao_gravacao() -> Vec<AppEntry> {
+    let definition: &[(&str, &'static str, &'static str, &[&str])] = &[
+        (
+            "obs",
+            "OBS Studio",
+            "Gravação e streaming",
+            &[
+                "/usr/share/icons/hicolor/256x256/apps/com.obsproject.Studio.png",
+                "/usr/share/pixmaps/obs.png",
+            ],
+        ),
+        (
+            "gpu-screen-recorder",
+            "GPU Screen Recorder",
+            "Gravação de gameplay",
+            &["/usr/share/icons/hicolor/256x256/apps/gpu-screen-recorder.png"],
+        ),
+    ];
+
+    definition
+        .iter()
+        .map(|(key, name, description, icons)| {
+            let estado = estado_instalacao(key);
+            AppEntry {
+                id: (*key).to_string(),
+                name: (*name).to_string(),
+                description: (*description).to_string(),
+                available: estado.estado == "instalado",
+                version: estado.versao.clone(),
+                icon: icone_data_uri(key, icons),
+                estado: estado.estado.clone(),
+                formato: estado.formato,
+            }
+        })
+        .collect()
+}
+
+pub fn criacao_video() -> Vec<AppEntry> {
+    let definition: &[(&str, &'static str, &'static str, &[&str])] = &[
+        (
+            "kdenlive",
+            "Kdenlive",
+            "Edição de vídeo",
+            &[
+                "/usr/share/icons/hicolor/256x256/apps/kdenlive.png",
+                "/usr/share/pixmaps/kdenlive.png",
+            ],
+        ),
+        (
+            "losslesscut",
+            "LosslessCut",
+            "Cortes rápidos",
+            &["/usr/share/icons/hicolor/256x256/apps/no.mifi.losslesscut.png"],
+        ),
+    ];
+
+    definition
+        .iter()
+        .map(|(key, name, description, icons)| {
+            let estado = estado_instalacao(key);
+            AppEntry {
+                id: (*key).to_string(),
+                name: (*name).to_string(),
+                description: (*description).to_string(),
+                available: estado.estado == "instalado",
+                version: estado.versao.clone(),
+                icon: icone_data_uri(key, icons),
+                estado: estado.estado.clone(),
+                formato: estado.formato,
+            }
+        })
+        .collect()
+}
+
+pub fn criacao_audio() -> Vec<AppEntry> {
+    let definition: &[(&str, &'static str, &'static str, &[&str])] = &[
+        (
+            "audacity",
+            "Audacity",
+            "Edição de áudio",
+            &[
+                "/usr/share/icons/hicolor/256x256/apps/audacity.png",
+                "/usr/share/pixmaps/audacity.png",
+            ],
+        ),
+        (
+            "easyeffects",
+            "EasyEffects",
+            "Processamento de áudio",
+            &[
+                "/usr/share/icons/hicolor/256x256/apps/com.github.wwmm.easyeffects.png",
+                "/usr/share/icons/hicolor/256x256/apps/easyeffects.png",
+            ],
+        ),
+    ];
+
+    definition
+        .iter()
+        .map(|(key, name, description, icons)| {
+            let estado = estado_instalacao(key);
+            AppEntry {
+                id: (*key).to_string(),
+                name: (*name).to_string(),
+                description: (*description).to_string(),
+                available: estado.estado == "instalado",
+                version: estado.versao.clone(),
+                icon: icone_data_uri(key, icons),
+                estado: estado.estado.clone(),
+                formato: estado.formato,
+            }
+        })
+        .collect()
+}
+
+pub fn criacao_social() -> Vec<AppEntry> {
+    let definition: &[(&str, &'static str, &'static str, &[&str])] = &[
+        (
+            "discord",
+            "Discord",
+            "Voz e chat para comunidades",
+            &[
+                "/usr/share/icons/hicolor/256x256/apps/com.discordapp.Discord.png",
+                "/usr/share/pixmaps/discord.png",
+            ],
+        ),
+        (
+            "teamspeak",
+            "TeamSpeak 3",
+            "Voz de baixa latência para jogos",
+            &["/usr/share/icons/hicolor/256x256/apps/teamspeak3.png"],
+        ),
+    ];
+
+    definition
+        .iter()
+        .map(|(key, name, description, icons)| {
             let estado = estado_instalacao(key);
             AppEntry {
                 id: (*key).to_string(),
@@ -305,18 +472,9 @@ pub(crate) struct EstadoReal {
 pub(crate) fn estado_instalacao(id: &str) -> EstadoReal {
     let info = super::install::achado_pub(id);
 
-    // flatpak by escopo (mesma consulta do detail())
-    let flatpak_ids: Option<(Vec<(String, String)>, Vec<(String, String)>)> = Command::new("flatpak")
-        .arg("--version")
-        .output()
-        .ok()
-        .filter(|o| o.status.success())
-        .map(|_| {
-            (
-                super::install::flatpaks_escopo_pub("--system"),
-                super::install::flatpaks_escopo_pub("--user"),
-            )
-        });
+    // flatpak pelo memo curto (mesma consulta, sem re-spawn por card)
+    let flatpak_ids: Option<(Vec<(String, String)>, Vec<(String, String)>)> =
+        super::install::flatpak_ids_estado();
 
     if let Some(i) = info {
         if let Some(fid) = i.flatpak {

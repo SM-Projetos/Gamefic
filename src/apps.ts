@@ -1,7 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { mostrarPagina } from "./nav";
 import { overlayAtivo } from "./overlay";
-import { invalidarDetalhes } from "./system";
+import { armazenarDetalhe, detalheDe, invalidarDetalhes, notificarAtualizacaoFeita } from "./system";
 
 export interface FonteInfo {
   fonte: string;
@@ -81,6 +81,10 @@ export function irParaApps(): void {
 }
 
 function fecharGerenciadorApp(): void {
+  if (timerRevalidacao !== undefined) {
+    window.clearTimeout(timerRevalidacao);
+    timerRevalidacao = undefined;
+  }
   const scrim = document.getElementById("app-manager-scrim");
   if (scrim) scrim.setAttribute("hidden", "");
   document.body.classList.remove("app-manager-open");
@@ -88,19 +92,80 @@ function fecharGerenciadorApp(): void {
 }
 
 export function abrirApp(appId: string): void {
-  invoke<AppDetail>("get_app_detail", { appId })
+  const card = document.getElementById("app-detalhe-card");
+  const scrim = document.getElementById("app-manager-scrim");
+  if (!scrim) return;
+  // a janela abre imediatamente com estado de carregamento (como nas ferramentas
+  // de compatibilidade); os detalhes (incl. consulta de repositório) chegam depois
+  if (card) {
+    card.innerHTML = `<p class="muted app-detalhe__carregando" aria-live="polite">Carregando informações...</p>`;
+  }
+  const titulo = document.getElementById("app-manager-title");
+  if (titulo) titulo.textContent = "Gerenciar aplicativo";
+  scrim.removeAttribute("hidden");
+  document.body.classList.add("app-manager-open");
+
+  detalheDe(appId)
     .then((d) => {
+      if (!d) {
+        if (card) {
+          card.innerHTML = `
+            <div class="app-detalhe__head">
+              <h2>Não foi possível carregar o aplicativo</h2>
+              <p class="app-detalhe__desc">A consulta das fontes falhou agora. Tente novamente em alguns instantes.</p>
+              <div class="app-detalhe__src-botoes">
+                <button class="btn btn--outline" id="btn-app-retry" type="button">Tentar novamente</button>
+              </div>
+            </div>`;
+          document.getElementById("btn-app-retry")?.addEventListener("click", () => {
+            invalidarDetalhes();
+            abrirApp(appId);
+          });
+        }
+        return;
+      }
       detalheAtual = d;
       renderDetail(d);
-      const scrim = document.getElementById("app-manager-scrim");
-      if (!scrim) return;
-      scrim.removeAttribute("hidden");
-      document.body.classList.add("app-manager-open");
-      const titulo = document.getElementById("app-manager-title");
-      if (titulo) titulo.textContent = `Gerenciar ${d.nome}`;
+      const t = document.getElementById("app-manager-title");
+      if (t) t.textContent = `Gerenciar ${d.nome}`;
       setTopbarTitle(d.nome);
+      agendarRevalidacao(appId);
     })
-    .catch(() => alert("Falha ao carregar o aplicativo"));
+    .catch(() => {
+      if (card) {
+        card.innerHTML = `<p class="muted">Falha ao carregar o aplicativo. Tente novamente.</p>`;
+      }
+    });
+}
+
+// ---------- revalidação em segundo plano (com consulta de repositório) ----------
+
+let timerRevalidacao: number | undefined = undefined;
+
+/** ~10 s depois de abrir o gerenciador: revalida EM PLANO DE FUNDO (nunca
+ * bloqueia a abertura) e atualiza as informações se a janela continuar
+ * aberta no mesmo aplicativo */
+function agendarRevalidacao(appId: string): void {
+  if (timerRevalidacao !== undefined) window.clearTimeout(timerRevalidacao);
+  timerRevalidacao = window.setTimeout(() => {
+    timerRevalidacao = undefined;
+    const scrim = document.getElementById("app-manager-scrim");
+    if (!scrim || scrim.hasAttribute("hidden") || detalheAtual?.id !== appId) return;
+    invoke<AppDetail | null>("revalidar_detalhe", { appId })
+      .then((d) => {
+        if (!d || detalheAtual?.id !== appId) return;
+        const mudouFontes = JSON.stringify(d.fontes) !== JSON.stringify(detalheAtual?.fontes);
+        detalheAtual = d;
+        // recarrega o catálogo com o estado fresco (e já reaproveita o detalhe)
+        revalidarEstados();
+        armazenarDetalhe(appId, d);
+        if (!mudouFontes) return; // nada de novo na janela: não interrompe o usuário
+        renderDetail(d);
+        const t = document.getElementById("app-manager-title");
+        if (t) t.textContent = `Gerenciar ${d.nome}`;
+      })
+      .catch(() => {});
+  }, 10_000);
 }
 
 /**
@@ -431,6 +496,7 @@ function executarAcao(acao: "instalar" | "atualizar" | "remover"): void {
   invoke<string>("app_action", { appId: id, acao, fonte: f.fonte })
     .then((msg) => {
       status.textContent = msg;
+      if (acao === "atualizar") notificarAtualizacaoFeita(id);
       if (detalheAtual?.id) abrirApp(detalheAtual.id);
       revalidarEstados();
     })
@@ -458,6 +524,7 @@ function executarAcaoCard(botao: HTMLButtonElement): void {
   invoke<string>("app_action", { appId: id, acao, fonte: botao.dataset.fonte ?? "" })
     .then((msg) => {
       status.textContent = msg;
+      if (acao === "atualizar") notificarAtualizacaoFeita(id);
       revalidarEstados();
     })
     .catch((e) => {
@@ -469,7 +536,16 @@ function executarAcaoCard(botao: HTMLButtonElement): void {
 // ---------- tiles clicáveis + card "+" ----------
 
 export function wireAppClicks(): void {
-  const ids = ["ov-launchers", "ov-tools", "ov-compat", "ov-emul"];
+  const ids = [
+    "ov-launchers",
+    "ov-tools",
+    "ov-compat",
+    "ov-emul",
+    "ov-criacao-gravacao",
+    "ov-criacao-video",
+    "ov-criacao-audio",
+    "ov-criacao-social",
+  ];
   ids.forEach((gid) => {
     const grid = document.getElementById(gid);
     if (!grid) return;

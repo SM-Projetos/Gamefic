@@ -1,5 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 import { getVersion } from "@tauri-apps/api/app";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 import { applyTheme, applyReducedMotion } from "./motion";
 import { initNav } from "./nav";
 import { loadPrefs, savePrefs } from "./prefs";
@@ -42,6 +43,11 @@ window.addEventListener("DOMContentLoaded", async () => {
   applyTheme(prefs.theme);
   applyReducedMotion(prefs.reducedMotion);
   document.body.classList.remove("hidden-inicial");
+  // janela abre invisível (evita tela escura vazia do webview inicializando):
+  // só aparece agora, com a interface já pronta para exibir
+  getCurrentWindow()
+    .show()
+    .catch(() => {});
 
   setStatus("info", "Detectando sistema...");
 
@@ -49,6 +55,19 @@ window.addEventListener("DOMContentLoaded", async () => {
   void initOverlay();
 
   let ultimoSnapshot: SystemSnapshot | null = null;
+
+  // tela inicial já com conteúdo: usa o último snapshot persistido (leitura
+  // instantânea do disco); a detecção fresca em baixo substitui e atualiza
+  invoke<SystemSnapshot | null>("carregar_snapshot_cache")
+    .catch(() => null)
+    .then((cacheado) => {
+      if (!cacheado || ultimoSnapshot) return;
+      ultimoSnapshot = cacheado;
+      appsEstadoLimpar();
+      renderVisaoGeral(cacheado);
+      renderKernels(cacheado);
+      setStatus("info", "Refrescando detecção...");
+    });
 
   const recarregarSistema = () => {
     if (!ultimoSnapshot) return;

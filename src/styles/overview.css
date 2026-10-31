@@ -629,8 +629,13 @@
   margin-left: var(--space-2);
 }
 
-/* ---------- Popup "Atualizações" ---------- */
-.atualizacao-item {
+.app-detalhe__carregando {
+  margin: 0;
+  padding: var(--space-8) 0;
+  text-align: center;
+}
+
+/* ---------- Popup "Atualizações" ---------- */.atualizacao-item {
   display: flex;
   align-items: center;
   justify-content: space-between;

@@ -1,5 +1,6 @@
 const TAB_TITLES: Record<string, string> = {
   "visao-geral": "Apps",
+  criacao: "Criação de Conteúdo",
   desempenho: "Monitor do Sistema",
   kernels: "Kernels e Drivers",
   otimizacao: "Otimização",

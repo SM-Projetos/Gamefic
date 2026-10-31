@@ -60,6 +60,57 @@ fn emb(key: &str) -> Option<(&'static [u8], &'static str)> {
             include_bytes!("../../assets/icons/mame.svg"),
             "image/svg+xml",
         )),
+        // ---------- criação de conteúdo ----------
+        "obs" => Some((include_bytes!("../../assets/icons/obs.png"), "image/png")),
+        "gpu-screen-recorder" => Some((
+            include_bytes!("../../assets/icons/gpu-screen-recorder.png"),
+            "image/png",
+        )),
+        "kdenlive" => Some((
+            include_bytes!("../../assets/icons/kdenlive.png"),
+            "image/png",
+        )),
+        "losslesscut" => Some((
+            include_bytes!("../../assets/icons/losslesscut.png"),
+            "image/png",
+        )),
+        "audacity" => Some((
+            include_bytes!("../../assets/icons/audacity.png"),
+            "image/png",
+        )),
+        "easyeffects" => Some((
+            include_bytes!("../../assets/icons/easyeffects.png"),
+            "image/png",
+        )),
+        "discord" => Some((
+            include_bytes!("../../assets/icons/discord.png"),
+            "image/png",
+        )),
+        "teamspeak" => Some((
+            include_bytes!("../../assets/icons/teamspeak.png"),
+            "image/png",
+        )),
+        // ícones MIT do tema shelly-icons (credito: ZC Development)
+        "gamemode" => Some((
+            include_bytes!("../../assets/icons/gamemode.png"),
+            "image/png",
+        )),
+        "gamescope" => Some((
+            include_bytes!("../../assets/icons/gamescope.png"),
+            "image/png",
+        )),
+        "protontricks" => Some((
+            include_bytes!("../../assets/icons/protontricks.png"),
+            "image/png",
+        )),
+        "openrgb" => Some((
+            include_bytes!("../../assets/icons/openrgb.png"),
+            "image/png",
+        )),
+        "oversteer" => Some((
+            include_bytes!("../../assets/icons/oversteer.png"),
+            "image/png",
+        )),
         _ => None,
     }
 }

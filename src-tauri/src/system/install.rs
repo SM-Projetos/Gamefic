@@ -60,9 +60,8 @@ pub fn controle_de_teste(id: &str) -> Arc<std::sync::atomic::AtomicU8> {
     controle_de(id)
 }
 
-pub(crate) fn flatpaks_escopo_pub(escopo: &str) -> Vec<(String, String)> {
-    flatpaks_escopo(escopo)
-}
+// (flatpaks_escopo_pub removido: era a consulta por-card sem memo, substituída
+// por flatpak_ids_estado)
 
 // ---------- pacotes e flatpak ----------
 
@@ -95,12 +94,6 @@ pub(crate) fn versao_remote_info(saida: &str) -> Option<String> {
     })
 }
 
-/// versão do app-id em um remoto e escopo; None quando indisponível
-fn flatpak_versao_remoto(id: &str, escopo: &str, remoto: &str) -> Option<String> {
-    rodar("flatpak", &["remote-info", escopo, remoto, id])
-        .and_then(|s| versao_remote_info(&s))
-}
-
 /// remotos flatpak efetivamente configurados no escopo (não presume flathub)
 fn flatpak_remotos() -> Vec<String> {
     flatpak_remotos_de(&rodar(
@@ -125,6 +118,107 @@ pub(crate) fn flatpak_remotos_de(saida: &Option<String>) -> Vec<String> {
 /// - `Ok(Some(v))` — disponível (confirmado por resposta do remoto)
 /// - `Ok(None)`    — todos os remotos responderam e o app não está lá
 /// - `Err(reason)` — consulta não concluída (rede/repositório): não é prova de ausência
+/// (a função vive mais abaixo, junto do cache memória+disco)
+
+// ---------- cache de remote-info (memória + disco, sem rede na abertura) ----------
+
+/// resultado duradouro da consulta a um remoto: `Ok(v)` confirma disponibilidade
+/// (e a versão), `Ok(None)` confirma ausência, `Err` não confirma nada (rede falhou)
+#[derive(serde::Serialize, serde::Deserialize, Clone)]
+enum EstadoRemoto {
+    Ok(Option<String>),
+    Erro,
+}
+
+impl EstadoRemoto {
+    fn versao(&self) -> Option<String> {
+        match self {
+            EstadoRemoto::Ok(v) => v.clone(),
+            EstadoRemoto::Erro => None,
+        }
+    }
+}
+
+/// versão no repositório para `detail_fresco`: rede só quando `com_rede`
+/// (revalidação); na abertura do gerenciador usa o que já se sabe
+fn versao_remota(id: &str, com_rede: bool) -> EstadoRemoto {
+    if com_rede {
+        versao_remota_fresca(id)
+    } else {
+        versao_remota_conhecida(id).unwrap_or(EstadoRemoto::Erro)
+    }
+}
+
+#[derive(serde::Serialize, serde::Deserialize, Clone)]
+struct RemotoRegistro {
+    ts: u64,
+    estado: EstadoRemoto,
+}
+
+/// TTL de validade em memória; além dele cai no valor persistido em disco
+/// (último resultado conhecido, é exibido na hora e revalidado em background)
+const REMOTE_TTL: std::time::Duration = std::time::Duration::from_secs(300);
+
+fn remoto_cache() -> &'static std::sync::Mutex<
+    std::collections::HashMap<String, (std::time::Instant, EstadoRemoto)>,
+> {
+    static M: std::sync::OnceLock<
+        std::sync::Mutex<std::collections::HashMap<String, (std::time::Instant, EstadoRemoto)>>,
+    > = std::sync::OnceLock::new();
+    M.get_or_init(Default::default)
+}
+
+fn remoto_disco_caminho() -> Option<std::path::PathBuf> {
+    let base = std::env::var("XDG_DATA_HOME")
+        .ok()
+        .filter(|v| !v.is_empty())
+        .or_else(|| std::env::var("HOME").ok().map(|h| format!("{h}/.local/share")))?;
+    Some(
+        std::path::PathBuf::from(base)
+            .join("com.sergio.gamefic")
+            .join("consultas_remotas.json"),
+    )
+}
+
+fn remoto_disco_ler() -> std::collections::HashMap<String, RemotoRegistro> {
+    let Some(caminho) = remoto_disco_caminho() else {
+        return Default::default();
+    };
+    std::fs::read_to_string(caminho)
+        .ok()
+        .and_then(|s| serde_json::from_str(&s).ok())
+        .unwrap_or_default()
+}
+
+fn remoto_disco_salvar(mapa: &std::collections::HashMap<String, RemotoRegistro>) {
+    let Some(caminho) = remoto_disco_caminho() else { return };
+    if let Ok(json) = serde_json::to_string_pretty(mapa) {
+        if let Some(dir) = caminho.parent() {
+            let _ = std::fs::create_dir_all(dir);
+        }
+        let tmp = caminho.with_extension("json.tmp");
+        if std::fs::write(&tmp, json).is_ok() {
+            let _ = std::fs::rename(&tmp, &caminho);
+        }
+    }
+}
+
+fn remoto_disco_gravar(id: &str, estado: &EstadoRemoto) {
+    let mut mapa = remoto_disco_ler();
+    mapa.insert(
+        id.to_string(),
+        RemotoRegistro {
+            ts: std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map(|d| d.as_secs())
+                .unwrap_or(0),
+            estado: estado.clone(),
+        },
+    );
+    remoto_disco_salvar(&mapa);
+}
+
+/// consulta real, com rede: `flatpak remote-info`
 fn flatpak_versao_qualquer_remoto(id: &str) -> Result<Option<String>, String> {
     let remotos = flatpak_remotos();
     for r in &remotos {
@@ -138,8 +232,6 @@ fn flatpak_versao_qualquer_remoto(id: &str) -> Result<Option<String>, String> {
                 }
                 Some(o) => {
                     let e = String::from_utf8_lossy(&o.stderr).to_lowercase();
-                    // resposta definitiva de ausência: app ou remoto ausente
-                    // no escopo consultado (ex.: flathub só no sistema)
                     if e.contains("no app id")
                         || e.contains("not found")
                         || e.contains("não localizado")
@@ -156,6 +248,40 @@ fn flatpak_versao_qualquer_remoto(id: &str) -> Result<Option<String>, String> {
         }
     }
     Ok(None)
+}
+
+/// consulta do remoto registrada em memória/disco; NUNCA toca a rede
+fn versao_remota_conhecida(id: &str) -> Option<EstadoRemoto> {
+    {
+        let l = remoto_cache().lock().expect("mutex do cache de remote-info");
+        if let Some((t, e)) = l.get(id) {
+            if t.elapsed() < REMOTE_TTL {
+                return Some(e.clone());
+            }
+        }
+    }
+    // disco: último resultado conhecido, mesmo antigo (exibido na hora;
+    // a revalidação em segundo plano substitui se divergir)
+    let disco = remoto_disco_ler();
+    disco.get(id).map(|r| {
+        let mut l = remoto_cache().lock().expect("mutex do cache de remote-info");
+        l.insert(id.to_string(), (std::time::Instant::now(), r.estado.clone()));
+        r.estado.clone()
+    })
+}
+
+/// consulta de verdade na rede e registra em memória + disco (revalidar_detalhe)
+fn versao_remota_fresca(id: &str) -> EstadoRemoto {
+    let estado = match flatpak_versao_qualquer_remoto(id) {
+        Ok(v) => EstadoRemoto::Ok(v),
+        Err(_) => EstadoRemoto::Erro,
+    };
+    {
+        let mut l = remoto_cache().lock().expect("mutex do cache de remote-info");
+        l.insert(id.to_string(), (std::time::Instant::now(), estado.clone()));
+    }
+    remoto_disco_gravar(id, &estado);
+    estado
 }
 
 /// extrai (app-id, versão) ao gerar listas com `--columns=application,version`
@@ -180,6 +306,53 @@ fn flatpaks_escopo(escopo: &str) -> Vec<(String, String)> {
     .unwrap_or_default()
 }
 
+// ---------- memo curto das listas de flatpak (desempenho do catálogo) ----------
+
+/// cada card do catálogo consulta o estado por app (26+ apps), e hoje cada
+/// chamada deriva 3 invocações do CLI flatpak; com memória de curtíssimo
+/// prazo (TTL), um render inteiro usa UMA consulta tripla
+fn flatpak_ids_memo() -> &'static std::sync::Mutex<
+    Option<(std::time::Instant, Option<(Vec<(String, String)>, Vec<(String, String)>)>)>,
+> {
+    static M: std::sync::OnceLock<
+        std::sync::Mutex<
+            Option<(std::time::Instant, Option<(Vec<(String, String)>, Vec<(String, String)>)>)>,
+        >,
+    > = std::sync::OnceLock::new();
+    M.get_or_init(Default::default)
+}
+
+const FLATPAK_IDS_TTL: std::time::Duration = std::time::Duration::from_secs(10);
+
+/// listas de flatpaks instalados (sistema, usuário), do memo se fresco;
+/// `Some(listas)` = flatpak presente; `None` = sem flatpak/comando falhou
+pub fn flatpak_ids_estado() -> Option<(Vec<(String, String)>, Vec<(String, String)>)> {
+    let mut l = flatpak_ids_memo().lock().expect("mutex flatpak ids");
+    if let Some((t, Some(cachada))) = &*l {
+        if t.elapsed() < FLATPAK_IDS_TTL {
+            return Some(cachada.clone());
+        }
+    }
+    if let Some((_, None)) = &*l {
+        if l.as_ref().is_some_and(|(t, _)| t.elapsed() < FLATPAK_IDS_TTL) {
+            return None;
+        }
+    }
+    let presente = rodar("flatpak", &["--version"]).is_some();
+    let listas = if presente {
+        Some((flatpaks_escopo("--system"), flatpaks_escopo("--user")))
+    } else {
+        None
+    };
+    *l = Some((std::time::Instant::now(), listas.clone()));
+    listas
+}
+
+/// ações de instalar/remover mudam as listas — memo inválido na hora
+pub fn flatpak_ids_invalidate() {
+    *flatpak_ids_memo().lock().expect("mutex flatpak ids") = None;
+}
+
 // referências do sistema atual (consultas, sem instalar nada)
 fn flatpaks_instalados() -> Vec<String> {
     flatpaks_escopo("--system")
@@ -193,7 +366,17 @@ pub fn detail(id: &str) -> Option<AppDetail> {
     if let Some(d) = cache_ler(id) {
         return Some(d);
     }
-    let d = detail_fresco(id)?;
+    // abertura do gerenciador: SEM rede — fontes locais + último resultado
+    // conhecido do repositório (a consulta online fica para revalidar_detalhe)
+    let d = detail_fresco(id, false)?;
+    cache_salvar(id, &d);
+    Some(d)
+}
+
+/// revalidação completa (com consulta de repositório): chamada em segundo
+/// plano pela interface, depois que o gerenciador já está aberto
+pub fn revalidar(id: &str) -> Option<AppDetail> {
+    let d = detail_fresco(id, true)?;
     cache_salvar(id, &d);
     Some(d)
 }
@@ -228,12 +411,15 @@ pub fn cache_invalidate(id: &str) {
     cache_estado().lock().expect("mutex do cache de detalhes").remove(id);
 }
 
-/// consulta real de fontes (não cacheada)
-fn detail_fresco(id: &str) -> Option<AppDetail> {
+/// consulta das fontes; `com_rede=false` não consulta repositório alguma
+/// (usa somente resultados já conhecidos — abertura imediata do gerenciador)
+fn detail_fresco(id: &str, com_rede: bool) -> Option<AppDetail> {
     let info = achado(id)?;
-    let tem_flatpak_cmd = rodar("flatpak", &["--version"]).is_some();
-    let sistema = flatpaks_escopo("--system");
-    let usuario = flatpaks_escopo("--user");
+    // memo curto: uma única tripla de consultas alimenta todos os cards
+    let (tem_flatpak_cmd, sistema, usuario) = match flatpak_ids_estado() {
+        Some((s, u)) => (true, s, u),
+        None => (false, Vec::new(), Vec::new()),
+    };
     let familia = super::os::detect_distro().and_then(|d| d.family);
     let mgr = super::pkgmgr::atual();
 
@@ -293,7 +479,7 @@ fn detail_fresco(id: &str) -> Option<AppDetail> {
                     disponivel: true,
                     instalado: true,
                     versao: Some(versao.clone()),
-                    versao_repo: flatpak_versao_qualquer_remoto(fid).ok().flatten(),
+                    versao_repo: versao_remota(fid, com_rede).versao(),
                     motivo: None,
                     indeterminado: false,
                 });
@@ -301,9 +487,8 @@ fn detail_fresco(id: &str) -> Option<AppDetail> {
                 // não instalado nos escopos: disponibilidade exige confirmação
                 // do remoto; falha de consulta ≠ ausência (§3/§4.2)
                 let remotos = flatpak_remotos();
-                let disponivel = flatpak_versao_qualquer_remoto(fid);
-                match disponivel {
-                    Ok(Some(repo)) => {
+                match versao_remota(fid, com_rede) {
+                    EstadoRemoto::Ok(Some(repo)) => {
                         fontes.push(FonteInfo {
                             fonte: "flatpak".to_string(),
                             disponivel: true,
@@ -314,7 +499,7 @@ fn detail_fresco(id: &str) -> Option<AppDetail> {
                             indeterminado: false,
                         });
                     }
-                    Ok(None) => {
+                    EstadoRemoto::Ok(None) => {
                         fontes.push(FonteInfo {
                             fonte: "flatpak".to_string(),
                             disponivel: false,
@@ -333,15 +518,19 @@ fn detail_fresco(id: &str) -> Option<AppDetail> {
                             indeterminado: false,
                         });
                     }
-                    Err(m) => {
+                    EstadoRemoto::Erro => {
                         fontes.push(FonteInfo {
                             fonte: "flatpak".to_string(),
                             disponivel: false,
                             instalado: false,
                             versao: None,
                             versao_repo: None,
-                            motivo: Some(format!("não foi possível verificar agora: {m}")),
-                            // falha temporária: permite nova tentativa (§5-G)
+                            motivo: if com_rede {
+                                Some("não foi possível verificar agora (falha temporária)".to_string())
+                            } else {
+                                Some("o repositório ainda não foi verificado — a consulta será feita em segundo plano".to_string())
+                            },
+                            // consulta inconclusiva: permite nova tentativa (§5-G); a revalidação resolve
                             indeterminado: true,
                         });
                     }
@@ -350,18 +539,12 @@ fn detail_fresco(id: &str) -> Option<AppDetail> {
 
             if let Some((_, versao)) = no_usuario {
                 if no_sistema.is_none() {
-                    let remotos = flatpak_remotos();
-                    let remoto = remotos.first().map(String::as_str).unwrap_or("flathub");
                     fontes.push(FonteInfo {
                         fonte: "flatpak-user".to_string(),
                         disponivel: true,
                         instalado: true,
                         versao: Some(versao.clone()),
-                        versao_repo: flatpak_versao_remoto(
-                            fid,
-                            "--user",
-                            remoto,
-                        ),
+                        versao_repo: versao_remota(fid, com_rede).versao(),
                         motivo: None,
                         indeterminado: false,
                     });
@@ -387,10 +570,36 @@ fn detail_fresco(id: &str) -> Option<AppDetail> {
     })
 }
 
+/// roda o programa com teto de tempo: `snap` é conhecido por ficar preso
+/// esperando um serviço snapd que não responde (sem teto eram ~25 s por
+/// consulta); com teto, a fonte é degradada honestamente em segundos
+fn saida_com_max(prog: &str, args: &[&str], max: std::time::Duration) -> Option<std::process::Output> {
+    use std::sync::mpsc;
+    let (tx, rx) = mpsc::channel();
+    let prog_t = prog.to_string();
+    let args_t: Vec<String> = args.iter().map(|a| a.to_string()).collect();
+    std::thread::spawn(move || {
+        let out = Command::new(&prog_t).args(&args_t).output().ok();
+        let _ = tx.send(out);
+    });
+    rx.recv_timeout(max).ok().flatten()
+}
+
+/// consentimento do estado global do serviço snapd, com TTL: serviço morto
+/// não muda em segundos — memoriza a última resposta e evita repetir a espera
+fn snapd_memo() -> &'static std::sync::Mutex<Option<(std::time::Instant, bool)>> {
+    static M: std::sync::OnceLock<std::sync::Mutex<Option<(std::time::Instant, bool)>>> =
+        std::sync::OnceLock::new();
+    M.get_or_init(Default::default)
+}
+
+const SNAPD_MEMO_TTL: std::time::Duration = std::time::Duration::from_secs(600);
+
 /// consulta a Snap Store por `snap info` — sem snapd funcional, a fonte não
 /// é ofertada (não há como instalar nem confirmar disponibilidade)
 fn fonte_snap(snome: &str, mgr: super::pkgmgr::PkgMgr) -> FonteInfo {
     use super::pkgmgr::PkgMgr;
+    let teto = std::time::Duration::from_secs(2);
     let sem_snapd = |motivo: &str| FonteInfo {
         fonte: format!("snap:{snome}"),
         disponivel: false,
@@ -400,23 +609,47 @@ fn fonte_snap(snome: &str, mgr: super::pkgmgr::PkgMgr) -> FonteInfo {
         motivo: Some(motivo.to_string()),
         indeterminado: false,
     };
+    {
+        let memo = snapd_memo().lock().expect("mutex snapd");
+        if let Some((t, respondeu)) = &*memo {
+            if t.elapsed() < SNAPD_MEMO_TTL && !respondeu {
+                return sem_snapd(
+                    "snap instalado, mas o serviço snapd não respondeu — fonte não ofertada e sem consulta possível agora",
+                );
+            }
+        }
+    }
     if mgr == PkgMgr::Nenhum {
         return sem_snapd(
             "snapd precisa de um sistema com suporte a snap — fonte não ofertada aqui",
         );
     }
-    let Some(o) = saida("snap", &["version"]) else {
-        return sem_snapd("snap não está instalado no sistema");
+    let Some(o) = saida_com_max("snap", &["version"], teto) else {
+        // sem resposta no teto: snap interpelado, mas serviço não disponível
+        {
+            let mut memo = snapd_memo().lock().expect("mutex snapd");
+            *memo = Some((std::time::Instant::now(), false));
+        }
+        return sem_snapd(
+            "snap instalado, mas o serviço snapd não respondeu — fonte não ofertada e sem consulta possível agora",
+        );
     };
     let ver = String::from_utf8_lossy(&o.stdout).to_lowercase();
     // `snapd unavailable` na tabela do snap version = serviço não em execução
     if !o.status.success() || ver.contains("unavailable") || !ver.contains("snapd") {
+        let mut memo = snapd_memo().lock().expect("mutex snapd");
+        *memo = Some((std::time::Instant::now(), false));
         return sem_snapd(
             "snap instalado, mas o serviço snapd não está em execução — fonte não ofertada",
         );
     }
-    match rodar("snap", &["info", snome]) {
-        Some(sinfo) => {
+    match saida_com_max("snap", &["info", snome], teto) {
+        Some(o) if o.status.success() => {
+            {
+                let mut memo = snapd_memo().lock().expect("mutex snapd");
+                *memo = Some((std::time::Instant::now(), true));
+            }
+            let sinfo = String::from_utf8_lossy(&o.stdout).to_string();
             let instalado = sinfo.contains("tracking:");
             FonteInfo {
                 fonte: format!("snap:{snome}"),
@@ -428,7 +661,16 @@ fn fonte_snap(snome: &str, mgr: super::pkgmgr::PkgMgr) -> FonteInfo {
                 indeterminado: false,
             }
         }
-        // consulta à Snap Store não concluída: não é provação de ausência
+        // consulta à Snap Store não concluída (teto ou erro): não provam ausência
+        Some(_) => FonteInfo {
+            fonte: format!("snap:{snome}"),
+            disponivel: false,
+            instalado: false,
+            versao: None,
+            versao_repo: None,
+            motivo: Some("não foi possível consultar a Snap Store agora (falha temporária)".to_string()),
+            indeterminado: true,
+        },
         None => FonteInfo {
             fonte: format!("snap:{snome}"),
             disponivel: false,
@@ -547,6 +789,8 @@ pub fn acao_app(id: &str, acao: &str, fonte: &str) -> Result<String, InstalarErr
     let info = achado(id).ok_or(InstalarError::Fonte)?;
     // qualquer ação muda o estado real: o cache de detalhes morre aqui
     cache_invalidate(id);
+    // e também as listas de flatpak em memória (estado dos catálogos)
+    flatpak_ids_invalidate();
 
     let pkgmgr_op = |op: super::pkgmgr::PkgOp, pkg: &str| -> Result<String, InstalarError> {
         // revalida a condição antes de executar: vigiar compatibilidade,
@@ -607,8 +851,22 @@ pub fn acao_app(id: &str, acao: &str, fonte: &str) -> Result<String, InstalarErr
                     "não há instalação do seu usuário para remover neste escopo".into(),
                 ));
             }
+            if !instalado_no_escopo && acao == "atualizar" {
+                return Err(InstalarError::Falha(
+                    "o app não está instalado neste escopo para atualizar".into(),
+                ));
+            }
             let out = match acao {
-                "instalar" | "atualizar" => {
+                "atualizar" => {
+                    // update de verdade: atualiza do remoto de ORIGEM do app;
+                    // `install` sobre uma instalação existente reinstalaria a
+                    // mesma versão ou falharia silenciosamente em outro remoto
+                    Command::new("flatpak")
+                        .args(["update", escopo, "--noninteractive", "-y", fid])
+                        .output()
+                        .map_err(|e| InstalarError::Execucao(e.to_string()))?
+                }
+                "instalar" => {
                     // tenta os remotos realmente configurados, um a um —
                     // nenhum remoto configurado é erro honesto (não flathub fixo)
                     let remotos = flatpak_remotos();
@@ -639,7 +897,11 @@ pub fn acao_app(id: &str, acao: &str, fonte: &str) -> Result<String, InstalarErr
                 _ => return Err(InstalarError::Fonte),
             };
             if out.status.success() {
-                Ok("Operação concluída".to_string())
+                Ok(if acao == "atualizar" {
+                    "Atualização concluída".to_string()
+                } else {
+                    "Operação concluída".to_string()
+                })
             } else {
                 Err(InstalarError::Falha(
                     String::from_utf8_lossy(&out.stderr).to_string(),
@@ -653,7 +915,11 @@ pub fn acao_app(id: &str, acao: &str, fonte: &str) -> Result<String, InstalarErr
                 return Err(InstalarError::NaoDisponivel);
             }
             let out = match acao {
-                "instalar" | "atualizar" => Command::new("pkexec")
+                "atualizar" => Command::new("pkexec")
+                    .args(["snap", "refresh", snome])
+                    .output()
+                    .map_err(|e| InstalarError::Execucao(e.to_string()))?,
+                "instalar" => Command::new("pkexec")
                     .args(["snap", "install", snome])
                     .output()
                     .map_err(|e| InstalarError::Execucao(e.to_string()))?,

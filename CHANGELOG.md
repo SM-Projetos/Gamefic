@@ -5,6 +5,13 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/), 
 ## [Não lançado]
 
 ### Adicionado
+- **OpenRGB e Oversteer na aba Apps (Ferramentas de jogos),** com ícones oficiais embutidos (do appstream do Flathub): OpenRGB com fonte nativa (`openrgb`) e Flatpak; Oversteer só Flatpak (não há pacote em repo oficial). Fontes confirmadas por revalidação real.
+- **Ícone do Gamefic na sidebar:** logo enviada pelo usuário (resoluta em 256px, ~80 KB) destacada grande em cima do nome — também aplicada aos ícones de empacotamento/janela (32/128/128@2x/512/ico/`icon.png`).
+- **Ícones de GameMode, Gamescope e Protontricks** embutidos (obtidos do tema shelly-icons, licença MIT — ZC Development; cópia da licença em `assets/icons/shelly-icons-LICENSE-MIT.txt`).
+- **Ícones embutidos dos apps de Criação de Conteúdo:** OBS Studio, GPU Screen Recorder, Kdenlive, LosslessCut, Audacity, EasyEffects, Discord e TeamSpeak (baixados do appstream do Flathub e embutidos no binário); a busca da aba Apps não afeta mais a mensagem vazia da aba nova (termo independente).
+- **Indicadores "No catálogo / Instalados / Atualizações" na aba Criação de Conteúdo**, com botão "Atualizações" abrindo o mesmo popup da aba Apps; contagens separadas por grupo (os apps da aba nova não contam nos indicadores da aba Apps e vice-versa).
+- **Aba "Criação de Conteúdo":** nova seção do catálogo dividida em Gravação e Stream (OBS Studio, GPU Screen Recorder), Vídeo (Kdenlive, LosslessCut), Áudio (Audacity, EasyEffects) e Social (Discord, TeamSpeak 3). Os cards reutilizam integralmente o formato e as funções da aba Apps (busca própria no cabeçalho da aba, ação principal contextual pelo estado real, janela "Gerenciar" com o mesmo fluxo de fontes e ícone da aplicação quando detectável). Disponibilidade seguida de forma honesta: fontes nativas e Flatpak por detecção/confirmação real, sem fonte Snap presumida nos novos apps.
+- **Verificação real das fontes de TODOS os apps do catálogo** (`flatpak remote-info` no flathub + `pacman -Si`): TeamSpeak ganhou fonte nativa `teamspeak3` (Arch) além do Flatpak; LosslessCut segue só Flatpak (sem pacote em repo oficial); PCSX2 e RPCS3 confirmados com fonte Flatpak (não há pacote deles em repos oficiais — eles usam AUR, não visível a `pacman -Si`); o exemplo `dump_revalidar` revalida, sem argumentos, **todo o catálogo** e semeia o cache persistido `consultas_remotas.json` (rotina anti "sem fonte de instalação").
 - **Fase 3 — perfis por jogo com herança do global:** cada jogo/emulador pode ter uma configuração própria no arquivo `~/.config/MangoHud/<nome-do-processo>.conf` (convenção do próprio MangoHud, que resolve o arquivo pelo nome do processo executando). Campos idênticos às preferências globais ficam comentados no arquivo do perfil (herdam o global — mudanças no global se propagam para esses campos); divergências vão explícitas, com toggle desligado em `chave=0` (sintaxe documentada pelo gabarito). Salvar um perfil NUNCA altera o `MangoHud.conf` global; perfis válidos: 1–48 caracteres de `a-z`, `0-9`, `_`, `-` (validados no Rust contra escape de caminho e colisão com o global). Perfil inexistente devolve a visão editável do global, e remover um perfil devolve os jogos correspondentes ao global (remoção do global é recusada).
 - Seletor de perfil na aba Overlay: perfil global + perfis existentes, criação por nome de processo, remoção com confirmação e contagem de campos herdados exibida na interface.
 - Título do HUD gerenciado (chave documentada `custom_text`): campo "Título exibido no HUD" com padrão `Gamefic` quando o usuário não informar outro; vazio = sem título (linha comentada, herdando o global em perfis).
@@ -24,6 +31,45 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/), 
 - Novos testes: mapeamento por família de catálogo, snap verificado, parser de remotos, idioma localizado e estados de consulta.
 
 ### Modificado
+- **"Atualizar" atualiza de verdade:** a ação de atualizar fonte Flatpak rodava `flatpak install` (reinstalação da mesma versão ou falha silenciosa em remoto que não é a origem) e mostrava "Concluído" sem efetivar nada — agora rodas `flatpak update --noninteractive` no escopo da instalação, recusando a ação se o app não está instalado naquele escopo; mensagem própria "Atualização concluída". Ação `atualizar` de fontes Snap usa `snap refresh` (antes `snap install`). Fontes nativas seguem com `pacman -S`, que sobre pacote instalado efetiva upgrade.
+- **Contador de atualizações refresca na hora:** cada sucesso de atualização (popup "Atualizações" individual, "Atualizar tudo" item por item, ou "Atualizar" na janela Gerenciar) retira o app da fila imediatamente e o número da topbar desce na hora — inclusive durante o "Atualizar tudo", contando para baixo enquanto os apps saem; quando novos detalhes/revalidações descobrem atualizações, o contador sobe na mesma hora.
+
+- **Tela inicial abre com o conteúdo já carregado:** o último snapshot completo (detecção da execução anterior) é persistido em `~/.local/share/com.sergio.gamefic/snapshot_cache.json`; o frontend carrega essa leitura instantânea bem no início e renderiza Apps/Criação de Conteúdo/Monitor por cima — em seguida a detecção fresca roda em background e substitui os dados (placeholders só aparecem na primeira execução, quando não há cache).
+- **Catálogo mais rápido de renderizar:** as consultas de estado de flatpak (1 `--version` + 2 listagens por card — os 26+ apps geravam ~80 invocações de CLI por render) agora usam um memo de curtíssimo prazo (10 s) compartilhado por todos os cards e revalidado no ato de instalar/remover.
+- **Abertura sem tela escura:** a janela agora abre invisível e aparece somente quando a interface está pronta (após aplicar o tema salvo) — em vez do fundo vazio escuro do webview inicializando; com rede de segurança: se o frontend não conseguir mostrar a janela, o backend a exibe após 6 s. O catálogo e as demais seções seguem renderizando placeholders imediatos ("Consultando...") e preenchem conforme as consultas concluem.
+- **Topbar única do botão "Atualizações":** removidos os indicadores "No catálogo"/"Instalados" e o campo de busca das abas Apps e Criação de Conteúdo; sobrou um único botão menor na barra superior, ao lado da engrenagem de configurações, com o total de atualizações das duas abas somadas — persistente em todas as abas (como as configurações), abrindo o mesmo popup de atualizações.
+- **Descrições das abas Apps e Criação de Conteúdo** conforme texto do usuário (banner da sidebar inalterado).
+- **Abertura do gerenciador de apps instantânea, sem "Carregando informações...":**
+  `get_app_detail` NÃO consulta mais a rede na abertura — fontes locais
+  (`flatpak list`, gerenciadores de pacote, estado do snapd) e o último
+  resultado conhecido do repositório (cache em memória com TTL de 5 min e
+  arquivo persistido `~/.local/share/com.sergio.gamefic/consultas_remotas.json`)
+  alimentam a janela na hora. Dados sem registro ainda no repositório ficam
+  honestamente "indeterminado até a verificação em segundo plano" nas fontes
+  não instaladas.
+- **Revalidação em segundo plano:** novo comando `revalidar_detalhe` (com
+  consulta de repositório); a interface agenda ~10 s depois de abrir o
+  gerenciador e, se a janela ainda estiver aberta no mesmo aplicativo,
+  atualiza as informações no lugar (e alimenta os cards da visão geral) —
+  sem toque novo se nada mudou, para não interromper o usuário.
+- **Teto de tempo no snapd:** `snap` CLI pode ficar preso dezenas de
+  segundos à espera de um serviço morto (era a causa dos ~26 s do Steam).
+  Consultas de snap agora têm teto de 2 s e o estado do serviço é memorizado
+  por 10 min; sem snapd funcional, a fonte Snap segue honestamente não
+  ofertada. `cargo run --example dump_timings -- steam`: 26 s → 2,4 s frio,
+  instantâneo quente.
+- Desempenho na abertura do gerenciador de aplicativos (aba Apps):
+  a janela agora abre imediatamente ao clicar no card exibindo "Carregando
+  informações...", e os detalhes (incluindo consulta de repositório que pode
+  levar segundos em consultas de rede como `flatpak remote-info`) preenchem
+  quando prontos — antes, a janela só aparecia depois da resposta completa,
+  com Steam entre os casos mais lentos. A consulta do gerenciador reutiliza
+  o cache de detalhes do frontend já baixado pelos cards quando válido, e
+  falha oferece "Tentar novamente" dentro da própria janela. No backend, a
+  versão consultada nos remotos (`remote-info`) recebe cache em memória com
+  TTL de 5 min por app-id: reabrir o gerenciador na mesma sessão dispensa
+  nova ida à rede; ações de instalar/remover continuam revalidando o estado
+  LOCAL em tempo real (`flatpak list`), que nunca é cacheado nessa camada.
 - Tema claro: tokens de status verde (`--accent-green` → `#047857`) e âmbar (`--accent-amber` → `#c2410c` laranja escuro) redefinidos com translúcidos próprios, corrigindo o contraste fraco das cores de fundo escuro aplicadas ao tema claro. Alcance global via tokens — pílulas "Instalado"/"Não instalado" dos cards, indicadores "Instalados"/"Atualizações" na aba Apps, status "Sistema detectado" da barra superior e demais indicadores verdes/laranja das outras abas. Tema escuro preservado intacto em `:root`.
 - Interface da aba Apps reconstruída: novo cabeçalho com indicadores "No catálogo", "Instalados" e "Atualizações" (contados a partir dos detalhes reais de cada card; o de Atualizações é clicável e abre um popup com a lista de atualizações, com atualização individual e "Atualizar tudo"), campo de busca na mesma linha dos indicadores com estado de "sem resultados" em cada categoria, estado de erro na detecção com botão "Tentar novamente", e catálogo em cards compactos (ícone ampliado, nome, versão, descrição e pílula textual de estado no canto inferior direito — verde circulado para instalado e âmbar para não instalado ou verificação indisponível, reutilizando os indicadores globais) com grids CSS Grid responsivos. A ação principal de cada card é contextual ao estado real: Instalar (com seletor de fonte Flatpak/Snap/nativo quando houver mais de uma), Atualizar (só quando há versão nova no repositório) ou Abrir (apps com GUI); clicar no próprio card abre o gerenciador existente, onde ficam Remover, atualização e a seleção completa de fontes. Cards de Compatibilidade (Wine/Proton) e o card "+ Adicionar" mantêm o fluxo próprio pelo modal existente. Cards do catálogo são navegáveis por teclado (Enter/Espaço) com rótulos ARIA.
 
