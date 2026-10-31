@@ -44,4 +44,4 @@ Dados indisponíveis são exibidos como "Não disponível" — nenhum valor fict
 
 ## Dados do usuário
 
-`~/.local/share/com.sergio.gamefic/` — preferências (JSON), eventos e o cache do último snapshot (`snapshot_cache.json`) usado para abrir a tela inicial já com conteúdo (a detecção fresca sempre roda em background depois e substitui os dados).
+`~/.local/share/com.<usuário>.gamefic/` — preferências (JSON), eventos e o cache do último snapshot (`snapshot_cache.json`) usado para abrir a tela inicial já com conteúdo (a detecção fresca sempre roda em background depois e substitui os dados), onde `<usuário>` é o seu usuário do Linux.
