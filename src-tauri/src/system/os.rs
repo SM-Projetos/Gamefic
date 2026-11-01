@@ -109,12 +109,41 @@ pub fn detect_arch() -> Option<String> {
             return Some(trimmed.to_string());
         }
     }
-    let out = std::process::Command::new("uname").arg("-m").output().ok()?;
+    let out = super::spawn::comando("uname").arg("-m").output().ok()?;
     if out.status.success() {
         let v = String::from_utf8_lossy(&out.stdout).trim().to_string();
         if v.is_empty() { None } else { Some(v) }
     } else {
         None
+    }
+}
+
+/// Modelo da placa-mãe via DMI (/sys/class/dmi/id). Em boca de lógica:
+/// fabricantes escrevem "ASUSTeK COMPUTER INC.", "Gigabyte Technology Co., Ltd."
+/// etc.; aparar os sufixos societários deixa o rótulo legível.
+pub fn detect_motherboard() -> Option<String> {
+    let caminho = |arquivo: &str| std::fs::read_to_string(format!("/sys/class/dmi/id/{arquivo}"))
+        .ok()
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty() && !s.eq_ignore_ascii_case("system product name") && !s.eq_ignore_ascii_case("default string"));
+
+    let vendor = caminho("board_vendor");
+    let nome = caminho("board_name");
+    match (vendor, nome) {
+        (Some(mut vendor), Some(nome)) => {
+            for sufixo in ["COMPUTER INC.", "COMPUTER INC", "SYSTEMS", "TECHNOLOGY CO., LTD", "TECHNOLOGY CO LTD"] {
+                let maiori = vendor.to_uppercase();
+                let pos = maiori.find(&sufixo.to_uppercase());
+                if let Some(p) = pos {
+                    vendor = vendor[..p].trim().to_string();
+                    break;
+                }
+            }
+            Some(format!("{vendor} {nome}").trim().to_string())
+        }
+        (Some(v), None) => Some(v),
+        (None, Some(n)) => Some(n),
+        (None, None) => None,
     }
 }
 

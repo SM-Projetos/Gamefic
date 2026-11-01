@@ -1,9 +1,8 @@
-use std::process::Command;
 
 use super::{VulkanGpu, VulkanInfo};
 
 pub fn detect() -> Option<VulkanInfo> {
-    let output = Command::new("vulkaninfo").arg("--summary").output().ok()?;
+    let output = super::spawn::comando("vulkaninfo").arg("--summary").output().ok()?;
 
     if !output.status.success() {
         return None;

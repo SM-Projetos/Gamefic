@@ -1,0 +1,14 @@
+[Desktop Entry]
+Name=Gamefic
+Name[pt_BR]=Gamefic
+GenericName=Otimizador para jogos
+GenericName[pt_BR]=Otimizador para jogos
+Comment=Detecta hardware e sistema, monitora desempenho, gerencia apps, criação de conteúdo e o overlay MangoHud
+Comment[pt_BR]=Detecta hardware e sistema, monitora desempenho, gerencia apps, criação de conteúdo e o overlay MangoHud
+Exec=gamefic
+Icon=com.sergio.gamefic
+Terminal=false
+Type=Application
+Categories=Game;System;
+Keywords=jogos;otimizar;desempenho;flatpak;
+StartupWMClass=Gamefic

@@ -1,0 +1,20 @@
+[Application]
+name=com.sergio.gamefic
+runtime=org.gnome.Platform/x86_64/48
+command=gamefic
+
+[Context]
+shared=ipc;network;
+sockets=fallback-x11;wayland;x11;
+devices=dri;
+filesystems=home;
+talk=org.freedesktop.Flatpak;
+
+[Extension org.freedesktop.Platform.GL]
+version=1.4
+directory=lib/gl
+subdirectories=true
+
+[Environment]
+LANG=
+LC_ALL=

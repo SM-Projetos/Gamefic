@@ -654,7 +654,7 @@ pub fn perfis_existentes() -> Vec<String> {
 /// MangoHud presente? (binário da distribuição; mesmo critério de tools.rs,
 /// que verifica o binário "mangohud" — presente nos pacotes Vulkan/GL)
 pub fn instalado() -> bool {
-    let Ok(o) = std::process::Command::new("which").arg("mangohud").output() else {
+    let Ok(o) = super::spawn::comando("which").arg("mangohud").output() else {
         return false;
     };
     o.status.success()

@@ -85,6 +85,7 @@ export interface SystemSnapshot {
   storage: StorageDevice[];
   kernel?: string | null;
   arch?: string | null;
+  motherboard?: string | null;
   cpu?: CpuInfo | null;
   cpuTempC?: number | null;
   mesaVersion?: string | null;
@@ -360,34 +361,42 @@ function inserirCardAddCompat(): void {
 }
 
 export function renderDesempenho(snapshot: SystemSnapshot): void {
-  // CPU
-  setText("#dp-cpu-modelo", snapshot.cpu?.model ?? null);
-  setText("#dp-cpu-detalhe", resumoCpu(snapshot.cpu));
-  setText("#dp-cpu-frequencia", snapshot.cpu?.currentFreqsMhz?.length ? mhz(snapshot.cpu.currentFreqsMhz[0]) : null);
+  // CPU: só temperatura/frequência ao vivo; modelo vai para o chip Processador
   setTextTemp("#dp-cpu-temperatura", snapshot.cpuTempC);
 
-  // GPU (driver + versao, agrupados por GPU)
-  const gpu = snapshot.gpus[0] ?? null;
-  setText("#dp-gpu-modelo", gpu?.deviceName ?? gpu?.vendorName ?? (snapshot.gpus.length ? null : "Nenhuma GPU identificada"));
-
-  // Memoria e armazenamento
+  // Memória e armazenamento
   renderMemoria(snapshot.memory);
   renderStorage(snapshot.storage);
 
-  // Sistema
-  setText("#dp-distro", snapshot.distro?.name ?? null);
-  setText("#dp-kernel", snapshot.kernel ?? null);
-  setText("#dp-arch", snapshot.arch ?? null);
-  const mesa = snapshot.mesaVersion?.trim();
-  setText("#dp-mesa", mesa ? `Mesa ${mesa.replace(/^Mesa\s*/i, "")}` : null);
-  const uptime = document.getElementById("dp-uptime");
-  if (uptime) {
-    uptime.textContent =
-      snapshot.uptimeSeconds && snapshot.uptimeSeconds > 0
-        ? formatarUptime(snapshot.uptimeSeconds)
-        : INDISPONIVEL;
+  // chip "Sistema operacional" guarda arquitetura/Mesa/uptime como tooltip
+  const chipDistro = document.getElementById("dp-chip-distro");
+  const chipBox = document.getElementById("dp-chip-distro-box");
+  if (chipDistro) {
+    chipDistro.textContent = snapshot.distro?.name ?? INDISPONIVEL;
+    const extras = [
+      snapshot.distro?.version ? `Versão: ${snapshot.distro.version}` : null,
+      snapshot.arch ? `Arquitetura: ${snapshot.arch}` : null,
+      snapshot.mesaVersion?.trim() ? `Mesa ${snapshot.mesaVersion.trim().replace(/^Mesa\s*/i, "")}` : null,
+      snapshot.uptimeSeconds && snapshot.uptimeSeconds > 0 ? `Ativo por ${formatarUptime(snapshot.uptimeSeconds)}` : null,
+    ].filter(Boolean) as string[];
+    if (chipBox) chipBox.title = extras.join(" • ");
   }
-  renderDrivers(snapshot.gpus);
+  setText("#dp-chip-kernel", snapshot.kernel ?? null);
+  setText("#dp-chip-cpu", snapshot.cpu?.model ?? null);
+  setText("#dp-chip-board", snapshot.motherboard ?? null);
+
+  const gpu = snapshot.gpus[0] ?? null;
+  setText("#dp-chip-gpu", gpu?.deviceName ?? gpu?.vendorName ?? (snapshot.gpus.length ? INDISPONIVEL : "Nenhuma GPU identificada"));
+  const driverChip = document.getElementById("dp-chip-gpu-driver");
+  if (driverChip) {
+    driverChip.textContent = gpu?.driverVersion
+      ? gpu.driver === "nvidia"
+        ? `Driver de gráficos ${gpu.driverVersion}`
+        : `Driver de gráficos ${gpu.driverVersion} (Mesa)`
+      : gpu?.driver
+        ? `Driver de gráficos ${gpu.driver} — versão não informada`
+        : "Driver de gráficos não disponível";
+  }
 }
 
 function setTextTemp(selector: string, celsius: number | null | undefined): void {
@@ -406,74 +415,51 @@ function renderStorage(storage: StorageDevice[]): void {
     return;
   }
   storage.forEach((d) => {
-    const unidade = document.createElement("div");
-    unidade.className = "storage-unit";
     const usada = d.usedBytes ?? null;
     const total = d.totalBytes ?? d.sizeBytes ?? null;
+    const pct = usada != null && total != null && total > 0
+      ? Math.max(0, Math.min(100, (usada / total) * 100))
+      : null;
 
-    const head = document.createElement("div");
-    head.className = "storage-unit__head";
-    const nameBox = document.createElement("span");
-    nameBox.className = "storage-unit__media storage-list__media";
-    nameBox.innerHTML = `
-      <span class="storage-unit__name num">${esc(d.name)}</span>
-      <span class="storage-unit__model">${esc(d.model ?? "")}</span>
+    const bloco = document.createElement("div");
+    bloco.className = "storage-block";
+
+    const topo = document.createElement("div");
+    topo.className = "storage-block__topo";
+
+    const icon = document.createElement("span");
+    icon.className = "storage-block__icon";
+    icon.setAttribute("aria-hidden", "true");
+    icon.innerHTML = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 7h8M8 11h8M8 15h5"/><circle cx="15.5" cy="16.5" r="1.5"/></svg>`;
+
+    const info = document.createElement("div");
+    info.className = "storage-block__info";
+    const rotulo = d.kind ? `${d.kind} (${d.name})` : d.name;
+    const sub = usada != null && total != null && total > 0
+      ? `${formatarBytes(usada) ?? INDISPONIVEL} / ${formatarBytes(total) ?? INDISPONIVEL}`
+      : total != null
+        ? formatarBytes(total) ?? INDISPONIVEL
+        : INDISPONIVEL;
+    info.innerHTML = `
+      <span class="storage-block__name">${esc(rotulo)}${d.model ? ` <span class="storage-block__model">${esc(d.model)}</span>` : ""}</span>
+      <span class="storage-block__sub num">${esc(sub)}</span>
     `;
-    const kind = document.createElement("span");
-    kind.className = "storage-unit__kind";
-    kind.textContent = d.kind ?? "";
-    head.append(nameBox, kind);
 
-    if (usada != null && total != null && total > 0) {
-      const bar = document.createElement("div");
-      bar.className = "bar";
-      const fill = document.createElement("div");
-      fill.className = "bar__fill";
-      const pct = Math.max(0, Math.min(100, (usada / total) * 100));
-      fill.style.width = `${pct.toFixed(1)}%`;
-      bar.appendChild(fill);
-      unidade.appendChild(bar);
-    }
+    const pctEl = document.createElement("span");
+    pctEl.className = "storage-block__pct num";
+    pctEl.textContent = pct != null ? `${pct.toFixed(0)}%` : INDISPONIVEL;
 
-    const foot = document.createElement("div");
-    foot.className = "storage-unit__foot";
-    foot.innerHTML =
-      usada != null
-        ? `<span>Usada</span><span class="num">${esc(formatarBytes(usada) ?? INDISPONIVEL)}</span>`
-        : `<span>Partições não montadas — espaço usado indisponível</span>`;
-    if (total != null) {
-      const tot = document.createElement("span");
-      tot.innerHTML = `<span class="num">${esc(formatarBytes(total) ?? "")}</span>`;
-      foot.appendChild(tot);
-    }
+    topo.append(icon, info, pctEl);
 
-    unidade.append(head, foot);
-    container.appendChild(unidade);
-  });
-}
+    const bar = document.createElement("div");
+    bar.className = "bar bar--storage";
+    const fill = document.createElement("div");
+    fill.className = "bar__fill";
+    if (pct != null) fill.style.width = `${pct.toFixed(1)}%`;
+    bar.appendChild(fill);
 
-function renderDrivers(gpus: GpuInfo[]): void {
-  const dl = document.getElementById("dp-drivers");
-  if (!dl) return;
-  dl.innerHTML = "";
-  if (!gpus || gpus.length === 0) {
-    dl.innerHTML = `<dt>Nenhuma GPU identificada</dt><dd class="muted">—</dd>`;
-    return;
-  }
-  gpus.forEach((g) => {
-    const dt = document.createElement("dt");
-    dt.textContent = g.deviceName ?? g.vendorName ?? INDISPONIVEL;
-    const dd = document.createElement("dd");
-    dd.className = "num";
-    const driver = g.driver ?? INDISPONIVEL;
-    if (g.driverVersion) {
-      const labelMesa = g.driver !== "nvidia" ? "Mesa " : "";
-      const limpo = g.driverVersion.replace(/^Mesa\s*/, "");
-      dd.textContent = `${driver} · ${labelMesa}${limpo}`;
-    } else {
-      dd.textContent = driver;
-    }
-    dl.append(dt, dd);
+    bloco.append(topo, bar);
+    container.appendChild(bloco);
   });
 }
 
@@ -490,60 +476,30 @@ function formatarBytes(bytes: number | null | undefined): string | null {
 }
 
 function renderMemoria(mem?: MemoryInfo | null): void {
-  const total = document.getElementById("dp-ram-total");
-  if (total) {
-    total.textContent =
-      mem?.usedKb != null && mem?.totalKb != null
-        ? `${gib(mem.usedKb)} / ${gib(mem.totalKb)}`
-        : INDISPONIVEL;
+  // valores grandes são os mesmos que o amostrador live escreve (cartão RAM | Swap)
+  const total = mem?.totalKb ?? null;
+  const usada = mem?.usedKb ?? null;
+  setText("dp-ram-uso", usada != null && total != null ? `${gib(usada)} / ${gib(total)}` : INDISPONIVEL);
+  setText("dp-ram-disp", mem?.availableKb != null ? gib(mem.availableKb) : null);
+  const pct = usada != null && total != null && total > 0 ? (usada / total) * 100 : null;
+  setText("dp-ram-pct", pct != null ? `${pct.toFixed(0)}%` : INDISPONIVEL);
+
+  if (mem?.swapTotalKb != null && mem.swapTotalKb > 0) {
+    setText("dp-swap-uso",
+      mem.swapUsedKb != null ? `${gib(mem.swapUsedKb)} / ${gib(mem.swapTotalKb)}` : INDISPONIVEL);
+    setText("dp-swap-disp",
+      mem.swapUsedKb != null ? gib(Math.max(0, mem.swapTotalKb - mem.swapUsedKb)) : null);
+    const swapPct =
+      mem.swapUsedKb != null ? (mem.swapUsedKb / mem.swapTotalKb) * 100 : null;
+    setText("dp-swap-pct", swapPct != null ? `${swapPct.toFixed(0)}%` : INDISPONIVEL);
+  } else {
+    setText("dp-swap-uso", mem?.swapTotalKb != null ? "Sem swap ativo" : INDISPONIVEL);
+    setText("dp-swap-disp", null);
+    setText("dp-swap-pct", mem?.swapTotalKb != null ? "Sem swap ativo" : INDISPONIVEL);
   }
-
-  const pct =
-    mem?.usedKb != null && mem?.totalKb != null && mem.totalKb > 0
-      ? (mem.usedKb / mem.totalKb) * 100
-      : null;
-
-  const fill = document.querySelector<HTMLElement>("#dp-ram-bar .bar__fill");
-  if (fill && pct != null) fill.style.width = `${Math.max(0, Math.min(100, pct)).toFixed(1)}%`;
-
-  const pctLabel = document.getElementById("dp-ram-pct");
-  if (pctLabel) pctLabel.textContent = pct != null ? `${pct.toFixed(0)}% em uso` : INDISPONIVEL;
-
-  setText("#dp-ram-disponivel", mem?.availableKb != null ? gib(mem.availableKb) : null);
-
-  const swap =
-    mem?.swapTotalKb != null && mem?.swapUsedKb != null && mem.swapTotalKb > 0
-      ? `${gib(mem.swapUsedKb)} de ${gib(mem.swapTotalKb)}`
-      : null;
-  setText("#dp-swap-uso", swap ?? (mem?.swapTotalKb === 0 ? "Sem swap ativo" : null));
 }
 
-function resumoCpu(cpu?: CpuInfo | null): string | null {
-  if (!cpu) return null;
-  const partes: string[] = [];
-  if (cpu.coresPhysical != null && cpu.threadsLogical != null) {
-    partes.push(`${cpu.coresPhysical} núcleos / ${cpu.threadsLogical} threads`);
-  } else if (cpu.threadsLogical != null) {
-    partes.push(`${cpu.threadsLogical} threads`);
-  }
-  if (cpu.baseFreqMhz != null) partes.push(`base ${mhz(cpu.baseFreqMhz)}`);
-  return partes.length > 0 ? partes.join(" · ") : null;
-}
 
-export function atualizarRing(
-  circleId: string,
-  numId: string,
-  percento: number | null,
-): void {
-  const circle = document.getElementById(circleId) as SVGCircleElement | null;
-  const num = document.getElementById(numId);
-  if (num && percento != null) num.textContent = `${percento.toFixed(0)}%`;
-  if (!circle) return;
-  const C = 2 * Math.PI * 36;
-  const pct = percento == null ? 0 : Math.max(0, Math.min(100, percento)) / 100;
-  circle.style.strokeDasharray = `${C}`;
-  circle.style.strokeDashoffset = `${C * (1 - pct)}`;
-}
 
 export function classificarTemperatura(c: number): { classe: string; texto: string } {
   if (c >= 75) return { classe: "critical", texto: "Crítica" };

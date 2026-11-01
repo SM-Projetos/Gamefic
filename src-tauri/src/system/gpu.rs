@@ -14,7 +14,7 @@ pub struct GpuMetrics {
 }
 
 pub fn metrics() -> Option<GpuMetrics> {
-    let output = std::process::Command::new("nvidia-smi")
+    let output = super::spawn::comando("nvidia-smi")
         .args([
             "--query-gpu=utilization.gpu,memory.used,memory.total,temperature.gpu",
             "--format=csv,noheader,nounits",
@@ -181,7 +181,7 @@ fn load_pci_ids() -> Option<PciIds> {
 }
 
 fn run(program: &str, args: &[&str]) -> Result<String, std::io::Error> {
-    let output = std::process::Command::new(program).args(args).output()?;
+    let output = super::spawn::comando(program).args(args).output()?;
     if output.status.success() {
         Ok(String::from_utf8_lossy(&output.stdout).into_owned())
     } else {

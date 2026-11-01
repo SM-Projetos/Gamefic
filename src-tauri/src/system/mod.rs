@@ -8,6 +8,7 @@ pub mod memory;
 pub mod os;
 
 pub mod pkgmgr;
+pub mod spawn;
 
 pub mod steam;
 pub mod sensors;
@@ -125,6 +126,8 @@ pub struct SystemSnapshot {
     pub storage: Vec<StorageDevice>,
     pub kernel: Option<String>,
     pub arch: Option<String>,
+    #[serde(default)]
+    pub motherboard: Option<String>,
     pub cpu: Option<CpuInfo>,
     pub cpu_temp_c: Option<f32>,
     pub mesa_version: Option<String>,
@@ -160,6 +163,7 @@ pub fn snapshot() -> SystemSnapshot {
         storage: storage::detect(),
         kernel: os::detect_kernel(),
         arch: os::detect_arch(),
+        motherboard: os::detect_motherboard(),
         cpu: cpu::detect(),
         memory: memory::detect(),
         gpus,
@@ -217,7 +221,7 @@ pub fn snapshot_cache_rapido() -> Option<SystemSnapshot> {
 }
 
 fn run(program: &str, args: &[&str]) -> std::io::Result<String> {
-    let output = std::process::Command::new(program).args(args).output()?;
+    let output = spawn::comando(program).args(args).output()?;
     if output.status.success() {
         Ok(String::from_utf8_lossy(&output.stdout).into_owned())
     } else {

@@ -2,7 +2,6 @@ use serde::Serialize;
 use sha2::{Digest, Sha512};
 use std::fs;
 use std::path::PathBuf;
-use std::process::Command;
 
 use base64::engine::Engine;
 use super::appinfo::{AppInfo, REGISTRY};
@@ -66,7 +65,7 @@ pub fn controle_de_teste(id: &str) -> Arc<std::sync::atomic::AtomicU8> {
 // ---------- pacotes e flatpak ----------
 
 fn rodar(prog: &str, args: &[&str]) -> Option<String> {
-    Command::new(prog)
+    super::spawn::comando(prog)
         .args(args)
         .output()
         .ok()
@@ -77,7 +76,7 @@ fn rodar(prog: &str, args: &[&str]) -> Option<String> {
 /// executou e devolve o Output bruto (código de saída incluído), p/ distinguir
 /// "programa não existe" de "programa respondeu com erro"
 fn saida(prog: &str, args: &[&str]) -> Option<std::process::Output> {
-    Command::new(prog).args(args).output().ok()
+    super::spawn::comando(prog).args(args).output().ok()
 }
 
 /// extrai a linha "Version: x" / "Versão: x" (i18n) de `flatpak remote-info`
@@ -579,7 +578,7 @@ fn saida_com_max(prog: &str, args: &[&str], max: std::time::Duration) -> Option<
     let prog_t = prog.to_string();
     let args_t: Vec<String> = args.iter().map(|a| a.to_string()).collect();
     std::thread::spawn(move || {
-        let out = Command::new(&prog_t).args(&args_t).output().ok();
+        let out = super::spawn::comando(&prog_t).args(&args_t).output().ok();
         let _ = tx.send(out);
     });
     rx.recv_timeout(max).ok().flatten()
@@ -741,7 +740,7 @@ pub fn abrir_launcher(id: &str, overlay: bool) -> Result<String, String> {
 
     if let Some(fid) = info.flatpak {
         if instalados.iter().any(|l| l == fid) {
-            let mut cmd = Command::new("flatpak");
+            let mut cmd = super::spawn::comando("flatpak");
             cmd.args(args_flatpak_run(fid, overlay));
             cmd.spawn().map_err(|e| format!("falha ao iniciar: {e}"))?;
             return Ok(mensagem_inicio(overlay, true, super::mangohud::instalado()));
@@ -749,7 +748,7 @@ pub fn abrir_launcher(id: &str, overlay: bool) -> Result<String, String> {
     }
     for pkg in info.pacotes_aptos(super::os::detect_distro().and_then(|d| d.family).as_deref()) {
         if super::pkgmgr::instalado(pkg).is_some() {
-            let mut cmd = Command::new(pkg);
+            let mut cmd = super::spawn::comando(pkg);
             if overlay {
                 let (var, valor) = MANGOHUD_VAR;
                 cmd.env(var, valor);
@@ -861,7 +860,7 @@ pub fn acao_app(id: &str, acao: &str, fonte: &str) -> Result<String, InstalarErr
                     // update de verdade: atualiza do remoto de ORIGEM do app;
                     // `install` sobre uma instalação existente reinstalaria a
                     // mesma versão ou falharia silenciosamente em outro remoto
-                    Command::new("flatpak")
+                    super::spawn::comando("flatpak")
                         .args(["update", escopo, "--noninteractive", "-y", fid])
                         .output()
                         .map_err(|e| InstalarError::Execucao(e.to_string()))?
@@ -877,7 +876,7 @@ pub fn acao_app(id: &str, acao: &str, fonte: &str) -> Result<String, InstalarErr
                     }
                     let mut ultimo = None;
                     for r in &remotos {
-                        let o = Command::new("flatpak")
+                        let o = super::spawn::comando("flatpak")
                             .args(["install", escopo, "--noninteractive", "-y", r, fid])
                             .output()
                             .map_err(|e| InstalarError::Execucao(e.to_string()))?;
@@ -890,7 +889,7 @@ pub fn acao_app(id: &str, acao: &str, fonte: &str) -> Result<String, InstalarErr
                         "nenhum remoto pôde ser consultado".into(),
                     ))?
                 }
-                "remover" => Command::new("flatpak")
+                "remover" => super::spawn::comando("flatpak")
                     .args(["uninstall", escopo, "-y", "--noninteractive", fid])
                     .output()
                     .map_err(|e| InstalarError::Execucao(e.to_string()))?,
@@ -915,15 +914,15 @@ pub fn acao_app(id: &str, acao: &str, fonte: &str) -> Result<String, InstalarErr
                 return Err(InstalarError::NaoDisponivel);
             }
             let out = match acao {
-                "atualizar" => Command::new("pkexec")
+                "atualizar" => super::spawn::comando("pkexec")
                     .args(["snap", "refresh", snome])
                     .output()
                     .map_err(|e| InstalarError::Execucao(e.to_string()))?,
-                "instalar" => Command::new("pkexec")
+                "instalar" => super::spawn::comando("pkexec")
                     .args(["snap", "install", snome])
                     .output()
                     .map_err(|e| InstalarError::Execucao(e.to_string()))?,
-                "remover" => Command::new("pkexec")
+                "remover" => super::spawn::comando("pkexec")
                     .args(["snap", "remove", snome])
                     .output()
                     .map_err(|e| InstalarError::Execucao(e.to_string()))?,
@@ -1747,7 +1746,7 @@ pub fn instalar_proton(
             if let Some(cb) = &mut prog {
                 cb(None, "Instalando pacote (autorize no pkexec)...");
             }
-            let out = Command::new("pkexec")
+            let out = super::spawn::comando("pkexec")
                 .args(["pacman", "-S", "--noconfirm", p])
                 .output()
                 .map_err(|e| InstalarError::Execucao(e.to_string()))?;
@@ -2027,7 +2026,7 @@ pub fn instalar_proton(
             "compatibilitytools.d não encontrado".to_string(),
         ));
     };
-    let out = Command::new("tar")
+    let out = super::spawn::comando("tar")
         .args([
             "-xf",
             &tmp.to_string_lossy(),

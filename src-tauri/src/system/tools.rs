@@ -1,7 +1,6 @@
 use Availability::{Binario, PadraoFlatpak};
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::process::Command;
 
 use super::icons::icone_data_uri;
 use super::{AppEntry, ToolInfo};
@@ -584,7 +583,7 @@ fn either(a: Availability, b: Availability) -> Availability {
 
 fn consegui_executar<A: AsRef<str>>(programa: &str, args: impl IntoIterator<Item = A>) -> bool {
     let args: Vec<String> = args.into_iter().map(|a| a.as_ref().to_string()).collect();
-    Command::new(programa)
+    super::spawn::comando(programa)
         .args(&args)
         .output()
         .map(|o| o.status.success())
@@ -592,7 +591,7 @@ fn consegui_executar<A: AsRef<str>>(programa: &str, args: impl IntoIterator<Item
 }
 
 fn versao(programa: &str, args: &[&str]) -> Option<String> {
-    let output = Command::new(programa).args(args).output().ok()?;
+    let output = super::spawn::comando(programa).args(args).output().ok()?;
     if !output.status.success() {
         return None;
     }

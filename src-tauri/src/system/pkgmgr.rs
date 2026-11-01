@@ -10,7 +10,6 @@
 //! Dados não confiáveis nunca passam por shell: só args estruturados.
 
 use super::os;
-use std::process::Command;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum PkgMgr {
@@ -85,7 +84,7 @@ impl PkgMgr {
         };
         // O programa só conta como presente se responde com sucesso
         // [(gencaches no apt pode falhar sem índices — foco na existência)]
-        match Command::new(prog).args(args).output() {
+        match super::spawn::comando(prog).args(args).output() {
             Ok(_) => true,
             Err(_) => false,
         }
@@ -131,7 +130,7 @@ pub fn atual() -> PkgMgr {
 /// executou o programa e devolve saída bruta quando o processo girou
 /// (independe do código de saída — falhas inteiras distinguem ausência de erro)
 fn saida(prog: &str, args: &[&str]) -> Option<std::process::Output> {
-    Command::new(prog).args(args).output().ok()
+    super::spawn::comando(prog).args(args).output().ok()
 }
 
 fn texto(o: &std::process::Output) -> String {
@@ -337,7 +336,7 @@ pub fn instalar(pkg: &str) -> Result<(), String> {
         PkgMgr::Eopkg => ("eopkg", vec!["install".into(), "-y".into(), pkg.into()]),
         PkgMgr::Nenhum => return Err("a fonte nativa não é compatível com esta distribuição".into()),
     };
-    match Command::new("pkexec").arg(cmd).args(args).output() {
+    match super::spawn::comando("pkexec").arg(cmd).args(args).output() {
         Ok(o) => {
             if o.status.success() {
                 Ok(())
@@ -361,7 +360,7 @@ pub fn remover(pkg: &str) -> Result<(), String> {
         PkgMgr::Eopkg => ("eopkg", vec!["remove".into(), "-y".into(), pkg.into()]),
         PkgMgr::Nenhum => return Err("a fonte nativa não é compatível com esta distribuição".into()),
     };
-    match Command::new("pkexec").arg(cmd).args(args).output() {
+    match super::spawn::comando("pkexec").arg(cmd).args(args).output() {
         Ok(o) => {
             if o.status.success() {
                 Ok(())

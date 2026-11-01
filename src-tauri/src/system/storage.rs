@@ -36,8 +36,13 @@ pub fn detect() -> Vec<StorageDevice> {
 /// Espaço por disco somando as partições montadas (fonte: df).
 fn detect_usage() -> std::collections::HashMap<String, (u64, u64)> {
     let mut usage: std::collections::HashMap<String, (u64, u64)> = Default::default();
+    // o df lista UMA LINHA por ponto de montagem: uma mesma partição btrfs
+    // com subvolumes montados em /, /home, /var/... aparece várias vezes;
+    // somar repetições infla o disco (1 TB virava ~7 TB). Cada fonte
+    // (/dev/...) entra UMA vez só
+    let mut contadas: std::collections::HashSet<String> = Default::default();
 
-    let output = match std::process::Command::new("df")
+    let output = match super::spawn::comando("df")
         .args(["-B1", "--output=source,size,used,target"])
         .output()
     {
@@ -51,6 +56,9 @@ fn detect_usage() -> std::collections::HashMap<String, (u64, u64)> {
             continue;
         }
         let source = fields[0];
+        if !contadas.insert(source.to_string()) {
+            continue;
+        }
         let size: u64 = fields[1].parse().unwrap_or(0);
         let used: u64 = fields[2].parse().unwrap_or(0);
         if size == 0 {
