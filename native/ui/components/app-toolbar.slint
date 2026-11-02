@@ -17,7 +17,6 @@ component ToolbarAction inherits Rectangle {
         padding-left: 12px;
         padding-right: 12px;
         spacing: 7px;
-        vertical-alignment: center;
 
         Text {
             text: root.glyph;
@@ -67,8 +66,13 @@ export component AppToolbar inherits Rectangle {
 
     height: 68px;
     background: Theme.toolbar-bg;
-    border-bottom-width: 1px;
-    border-bottom-color: Theme.divider;
+
+    Rectangle {
+        y: root.height - 1px;
+        width: root.width;
+        height: 1px;
+        background: Theme.divider;
+    }
 
     HorizontalLayout {
         spacing: 12px;
