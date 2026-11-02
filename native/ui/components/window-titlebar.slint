@@ -5,16 +5,15 @@ component WindowControl inherits Rectangle {
     in property <color> hover-color: Theme.control-hover;
     callback activated();
 
-    width: 42px;
-    height: 40px;
-    border-radius: 10px;
+    width: 38px;
+    height: 34px;
+    border-radius: 8px;
     background: touch.has-hover ? root.hover-color : transparent;
 
     Text {
         text: root.glyph;
         color: Theme.text-primary;
-        font-size: 18px;
-        font-weight: 600;
+        font-size: 17px;
         horizontal-alignment: center;
         vertical-alignment: center;
     }
@@ -29,86 +28,50 @@ export component WindowTitleBar inherits Rectangle {
     callback maximize-requested();
     callback close-requested();
 
-    height: 58px;
+    height: 36px;
     background: Theme.titlebar-bg;
 
-    VerticalLayout {
-        spacing: 0;
+    HorizontalLayout {
+        padding-left: 14px;
+        padding-right: 10px;
+        spacing: 8px;
+
+        Text {
+            text: "GAMEFIC";
+            color: Theme.text-muted;
+            font-size: 9px;
+            font-weight: 800;
+            letter-spacing: 1.5px;
+            vertical-alignment: center;
+        }
+
+        WindowMoveArea {
+            horizontal-stretch: 1;
+            height: 36px;
+        }
 
         HorizontalLayout {
-            height: 57px;
-            spacing: 10px;
-            padding-left: 16px;
-            padding-right: 12px;
-
-            HorizontalLayout {
-                width: 205px;
-                spacing: 10px;
-
-                Image {
-                    source: @image-url("../../../src/assets/brand/gamefic.png");
-                    width: 34px;
-                    height: 34px;
-                    image-fit: contain;
-                }
-
-                Text {
-                    text: "Gamefic";
-                    color: Theme.text-primary;
-                    font-size: 18px;
-                    font-weight: 700;
-                    vertical-alignment: center;
-                }
+            spacing: 3px;
+            WindowControl {
+                glyph: "—";
+                activated => { root.minimize-requested(); }
             }
-
-            WindowMoveArea {
-                horizontal-stretch: 1;
-                height: 58px;
-
-                HorizontalLayout {
-                    alignment: center;
-                    spacing: 8px;
-
-                    Text {
-                        text: "⋮⋮";
-                        color: Theme.text-muted;
-                        font-size: 15px;
-                    }
-
-                    Text {
-                        text: "ARRASTE AQUI PARA MOVER A JANELA";
-                        color: Theme.text-muted;
-                        font-size: 10px;
-                        letter-spacing: 1px;
-                    }
-                }
+            WindowControl {
+                glyph: "□";
+                activated => { root.maximize-requested(); }
             }
-
-            HorizontalLayout {
-                width: 150px;
-                spacing: 4px;
-
-                WindowControl {
-                    glyph: "—";
-                    activated => { root.minimize-requested(); }
-                }
-
-                WindowControl {
-                    glyph: "□";
-                    activated => { root.maximize-requested(); }
-                }
-
-                WindowControl {
-                    glyph: "×";
-                    hover-color: #c83d59;
-                    activated => { root.close-requested(); }
-                }
+            WindowControl {
+                glyph: "×";
+                hover-color: #c83d59;
+                activated => { root.close-requested(); }
             }
         }
+    }
 
-        Rectangle {
-            height: 1px;
-            background: Theme.divider;
-        }
+    Rectangle {
+        y: root.height - 1px;
+        width: root.width;
+        height: 1px;
+        background: Theme.divider;
     }
 }
