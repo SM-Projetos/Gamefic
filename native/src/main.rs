@@ -168,14 +168,66 @@ fn percent_int(value: Option<f32>) -> i32 {
     value.map(|number| number.round().clamp(0.0, 100.0) as i32).unwrap_or(0)
 }
 
+
+fn history_values<F>(history: &[monitor::MetricSample], value: F) -> ModelRc<i32>
+where
+    F: Fn(&monitor::MetricSample) -> Option<f32>,
+{
+    let mut recent = history.iter().rev().take(48).collect::<Vec<_>>();
+    recent.reverse();
+    let values = recent
+        .iter()
+        .map(|sample| value(sample).map(|number| number.round().clamp(0.0, 100.0) as i32).unwrap_or(0))
+        .collect::<Vec<_>>();
+    Rc::new(VecModel::from(values)).into()
+}
+
+fn network_history_values(history: &[monitor::MetricSample]) -> ModelRc<i32> {
+    let mut recent = history.iter().rev().take(48).collect::<Vec<_>>();
+    recent.reverse();
+    let peak = recent
+        .iter()
+        .map(|sample| sample.net_download_bps.unwrap_or(0.0) + sample.net_upload_bps.unwrap_or(0.0))
+        .fold(0.0_f64, f64::max);
+    let values = recent
+        .iter()
+        .map(|sample| {
+            if peak <= 0.0 {
+                0
+            } else {
+                (((sample.net_download_bps.unwrap_or(0.0) + sample.net_upload_bps.unwrap_or(0.0)) / peak) * 100.0)
+                    .round()
+                    .clamp(0.0, 100.0) as i32
+            }
+        })
+        .collect::<Vec<_>>();
+    Rc::new(VecModel::from(values)).into()
+}
+
+fn apply_metric_history(ui: &GameficWindow, history: &[monitor::MetricSample]) {
+    ui.set_metric_cpu_history(history_values(history, |sample| sample.cpu_percent));
+    ui.set_metric_network_history(network_history_values(history));
+    ui.set_metric_gpu_history(history_values(history, |sample| sample.gpu_utilization_percent));
+    ui.set_metric_vram_history(history_values(history, |sample| {
+        match (sample.gpu_mem_used_mb, sample.gpu_mem_total_mb) {
+            (Some(used), Some(total)) if total > 0.0 => Some((used / total * 100.0).clamp(0.0, 100.0)),
+            _ => None,
+        }
+    }));
+    ui.set_metric_ram_history(history_values(history, |sample| sample.mem_used_percent));
+    ui.set_metric_swap_history(history_values(history, |sample| sample.swap_used_percent));
+}
+
 fn apply_metric_sample(ui: &GameficWindow, sample: monitor::MetricSample) {
     let cpu_peak = sample.cpu_peak_percent.map(|value| format!("Pico: {value:.1}%")).unwrap_or_else(|| "Pico: Não disponível".to_string());
     let cpu_frequency = sample.cpu_freq_avg_mhz
         .map(|mhz| if mhz >= 1000 { format!("Frequência média: {:.2} GHz", mhz as f32 / 1000.0) } else { format!("Frequência média: {mhz} MHz") })
         .unwrap_or_else(|| "Frequência média: Não disponível".to_string());
-    let cpu_temperature = sample.temp_max_c
-        .map(|value| format!("Temperatura máxima: {value:.0} °C"))
-        .unwrap_or_else(|| "Temperatura: Não disponível".to_string());
+    let cpu_temperature = match (sample.temp_max_c, sample.temp_label.as_deref()) {
+        (Some(value), Some(label)) => format!("Temperatura máxima: {value:.0} °C · {label}"),
+        (Some(value), None) => format!("Temperatura máxima: {value:.0} °C"),
+        (None, _) => "Temperatura: Não disponível".to_string(),
+    };
     ui.set_metric_cpu_value(SharedString::from(percent_text(sample.cpu_percent)));
     ui.set_metric_cpu_detail_a(SharedString::from(cpu_temperature));
     ui.set_metric_cpu_detail_b(SharedString::from(format!("{cpu_frequency} · {cpu_peak}")));
@@ -426,9 +478,17 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     ui.on_monitor_interval_changed(move |interval_ms| {
         monitor_for_interval.set_interval(interval_ms.max(500) as u64);
     });
+    let monitor_for_history = monitor_controller.clone();
+    let monitor_for_close = monitor_controller.clone();
+    ui.on_app_exit(move || monitor_for_close.stop());
+
     let monitor_ui = ui.as_weak();
     monitor_controller.start(move |sample| {
-        let _ = monitor_ui.upgrade_in_event_loop(move |ui| apply_metric_sample(&ui, sample));
+        let history = monitor_for_history.history();
+        let _ = monitor_ui.upgrade_in_event_loop(move |ui| {
+            apply_metric_sample(&ui, sample);
+            apply_metric_history(&ui, &history);
+        });
     })?;
 
     let ui_weak = ui.as_weak();

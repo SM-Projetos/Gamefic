@@ -34,6 +34,7 @@ component MetricCard inherits Rectangle {
     in property <int> percent: 0;
     in property <color> bar-color: Theme.accent;
     in property <bool> show-meter: true;
+    in property <[int]> history: [];
 
     height: 218px;
     border-radius: 17px;
@@ -82,6 +83,20 @@ component MetricCard inherits Rectangle {
             background: transparent;
         }
 
+        HorizontalLayout {
+            height: 30px;
+            spacing: 2px;
+            alignment: end;
+
+            for value in root.history : Rectangle {
+                horizontal-stretch: 1;
+                min-width: 1px;
+                height: value > 0 ? value * 0.28px : 1px;
+                border-radius: 1px;
+                background: root.bar-color;
+            }
+        }
+
         if root.show-meter : Rectangle {
             height: 7px;
             border-radius: 4px;
@@ -103,6 +118,7 @@ export component PerformancePage inherits Rectangle {
     in property <string> cpu-detail-a: "Aguardando primeira amostra";
     in property <string> cpu-detail-b: "Frequência média indisponível";
     in property <int> cpu-percent: 0;
+    in property <[int]> cpu-history: [];
 
     in property <string> network-value: "Aguardando dados";
     in property <string> network-detail-a: "Download: —";
@@ -113,23 +129,27 @@ export component PerformancePage inherits Rectangle {
     in property <string> gpu-detail-a: "Métricas dependem do driver";
     in property <string> gpu-detail-b: "Temperatura: —";
     in property <int> gpu-percent: 0;
+    in property <[int]> gpu-history: [];
     in property <bool> gpu-available: false;
 
     in property <string> vram-value: "Não disponível";
     in property <string> vram-detail-a: "Memória de vídeo indisponível";
     in property <string> vram-detail-b: "Uso: —";
     in property <int> vram-percent: 0;
+    in property <[int]> vram-history: [];
     in property <bool> vram-available: false;
 
     in property <string> ram-value: "—";
     in property <string> ram-detail-a: "Em uso: —";
     in property <string> ram-detail-b: "Disponível: —";
     in property <int> ram-percent: 0;
+    in property <[int]> ram-history: [];
 
     in property <string> swap-value: "—";
     in property <string> swap-detail-a: "Em uso: —";
     in property <string> swap-detail-b: "Disponível: —";
     in property <int> swap-percent: 0;
+    in property <[int]> swap-history: [];
     in property <bool> swap-available: false;
 
     in property <int> interval-ms: 2000;
@@ -204,6 +224,7 @@ export component PerformancePage inherits Rectangle {
                 detail-a: root.cpu-detail-a;
                 detail-b: root.cpu-detail-b;
                 percent: root.cpu-percent;
+                history: root.cpu-history;
                 bar-color: #a78bfa;
             }
             MetricCard {
@@ -212,6 +233,7 @@ export component PerformancePage inherits Rectangle {
                 value: root.network-value;
                 detail-a: root.network-detail-a;
                 detail-b: root.network-detail-b;
+                history: root.network-history;
                 show-meter: false;
             }
             MetricCard {
@@ -221,6 +243,7 @@ export component PerformancePage inherits Rectangle {
                 detail-a: root.gpu-detail-a;
                 detail-b: root.gpu-detail-b;
                 percent: root.gpu-percent;
+                history: root.gpu-history;
                 bar-color: #22d3ee;
                 show-meter: root.gpu-available;
             }
@@ -235,6 +258,7 @@ export component PerformancePage inherits Rectangle {
                 detail-a: root.vram-detail-a;
                 detail-b: root.vram-detail-b;
                 percent: root.vram-percent;
+                history: root.vram-history;
                 bar-color: #a78bfa;
                 show-meter: root.vram-available;
             }
@@ -245,6 +269,7 @@ export component PerformancePage inherits Rectangle {
                 detail-a: root.ram-detail-a;
                 detail-b: root.ram-detail-b;
                 percent: root.ram-percent;
+                history: root.ram-history;
                 bar-color: #a78bfa;
             }
             MetricCard {
@@ -254,6 +279,7 @@ export component PerformancePage inherits Rectangle {
                 detail-a: root.swap-detail-a;
                 detail-b: root.swap-detail-b;
                 percent: root.swap-percent;
+                history: root.swap-history;
                 bar-color: #22d3ee;
                 show-meter: root.swap-available;
             }

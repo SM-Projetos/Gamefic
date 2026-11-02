@@ -21,7 +21,7 @@ Requisitos:
 - Componentes reutilizáveis para navegação, toolbar, ícones, cards e indicadores.
 - Tela Apps alimentada pelo snapshot em cache e pela detecção real do backend.
 - Tela de detalhes de aplicativos com consulta assíncrona das fontes e versões, reutilizando `system::install::detail`.
-- Monitor do Sistema com métricas reais de CPU, rede, GPU, VRAM, RAM e Swap, coletadas em thread de fundo e atualizadas pela event loop Slint.
+- Monitor do Sistema com métricas reais de CPU, rede, GPU, VRAM, RAM e Swap, coletadas em thread de fundo e atualizadas pela event loop Slint; gráficos compactos exibem as últimas 48 amostras (janela móvel conforme o intervalo selecionado).
 - Intervalo de coleta selecionável: 1 s, 2 s ou 5 s.
 - Reuso direto dos módulos sem dependência de Tauri em `../src-tauri/src/system/`.
 
