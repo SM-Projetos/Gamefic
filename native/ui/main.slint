@@ -65,7 +65,7 @@ export component GameficWindow inherits Window {
     default-font-family: "Inter";
     default-font-size: 14px;
 
-    in-out property <bool> dark-theme: true;
+    in-out property <bool> dark-theme <=> Theme.dark;
     in-out property <string> selected-page: "Apps";
     in-out property <string> system-status: "Detectando sistema...";
     in-out property <int> update-count: 0;
@@ -74,8 +74,6 @@ export component GameficWindow inherits Window {
     in-out property <[AppCardData]> emulators: [];
     in-out property <[AppCardData]> game-tools: [];
     in-out property <[AppCardData]> compatibility: [];
-
-    in-out property <bool> dark-theme <=> Theme.dark;
 
     callback app-selected(string);
 
