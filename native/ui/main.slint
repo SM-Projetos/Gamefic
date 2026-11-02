@@ -98,6 +98,7 @@ export component GameficWindow inherits Window {
     in-out property <string> metric-network-value: "Aguardando dados";
     in-out property <string> metric-network-detail-a: "Download: —";
     in-out property <string> metric-network-detail-b: "Upload: —";
+    in-out property <[int]> metric-network-history: [];
     in-out property <string> metric-network-link: "Conexão não identificada";
     in-out property <string> metric-gpu-value: "Não disponível";
     in-out property <string> metric-gpu-detail-a: "Métricas dependem do driver";
@@ -214,6 +215,7 @@ export component GameficWindow inherits Window {
                     network-value: root.metric-network-value;
                     network-detail-a: root.metric-network-detail-a;
                     network-detail-b: root.metric-network-detail-b;
+                    network-history: root.metric-network-history;
                     network-link: root.metric-network-link;
                     gpu-value: root.metric-gpu-value;
                     gpu-detail-a: root.metric-gpu-detail-a;
