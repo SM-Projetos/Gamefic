@@ -4,6 +4,7 @@
 // These modules are Rust-only and do not depend on Tauri APIs.
 #[path = "../../src-tauri/src/system/mod.rs"]
 mod system;
+mod monitor;
 
 slint::include_modules!();
 
@@ -143,6 +144,100 @@ fn status_from_snapshot(snapshot: &system::SystemSnapshot) -> String {
         Some(distro) => format!("Sistema detectado · {}", distro.name),
         None => "Sistema detectado".to_string(),
     }
+}
+
+
+fn format_gib(kb: u64) -> String {
+    let value = kb as f64 / (1024.0 * 1024.0);
+    format!("{value:.1} GiB")
+}
+
+fn format_rate(bytes_per_second: f64) -> String {
+    if bytes_per_second >= 1024.0 * 1024.0 {
+        format!("{:.1} MB/s", bytes_per_second / (1024.0 * 1024.0))
+    } else {
+        format!("{:.1} KB/s", bytes_per_second / 1024.0)
+    }
+}
+
+fn percent_text(value: Option<f32>) -> String {
+    value.map(|number| format!("{number:.0}%")).unwrap_or_else(|| "Não disponível".to_string())
+}
+
+fn percent_int(value: Option<f32>) -> i32 {
+    value.map(|number| number.round().clamp(0.0, 100.0) as i32).unwrap_or(0)
+}
+
+fn apply_metric_sample(ui: &GameficWindow, sample: monitor::MetricSample) {
+    let cpu_peak = sample.cpu_percent.map(|value| format!("Uso atual: {value:.1}%")).unwrap_or_else(|| "Uso da CPU indisponível".to_string());
+    let cpu_frequency = sample.cpu_freq_avg_mhz
+        .map(|mhz| if mhz >= 1000 { format!("Frequência média: {:.2} GHz", mhz as f32 / 1000.0) } else { format!("Frequência média: {mhz} MHz") })
+        .unwrap_or_else(|| "Frequência média: Não disponível".to_string());
+    let cpu_temperature = sample.temp_max_c
+        .map(|value| format!("Temperatura máxima: {value:.0} °C"))
+        .unwrap_or_else(|| "Temperatura: Não disponível".to_string());
+    ui.set_metric_cpu_value(SharedString::from(percent_text(sample.cpu_percent)));
+    ui.set_metric_cpu_detail_a(SharedString::from(cpu_temperature));
+    ui.set_metric_cpu_detail_b(SharedString::from(format!("{cpu_frequency} · {cpu_peak}")));
+    ui.set_metric_cpu_percent(percent_int(sample.cpu_percent));
+
+    let network_link = match sample.net_link.as_deref() {
+        Some("cabo") => "Conexão cabeada",
+        Some("wifi") => "Conexão Wi-Fi",
+        Some("off") => "Sem conexão",
+        Some(_) => "Conexão identificada",
+        None => "Conexão não identificada",
+    };
+    ui.set_metric_network_value(SharedString::from(network_link));
+    ui.set_metric_network_link(SharedString::from(network_link));
+    ui.set_metric_network_detail_a(SharedString::from(sample.net_download_bps.map(|v| format!("Download: {}", format_rate(v))).unwrap_or_else(|| "Download: Não disponível".to_string())));
+    ui.set_metric_network_detail_b(SharedString::from(sample.net_upload_bps.map(|v| format!("Upload: {}", format_rate(v))).unwrap_or_else(|| "Upload: Não disponível".to_string())));
+
+    let gpu_available = sample.gpu_utilization_percent.is_some();
+    ui.set_metric_gpu_available(gpu_available);
+    ui.set_metric_gpu_value(SharedString::from(percent_text(sample.gpu_utilization_percent)));
+    ui.set_metric_gpu_percent(percent_int(sample.gpu_utilization_percent));
+    ui.set_metric_gpu_detail_a(SharedString::from(sample.gpu_temp_c.map(|v| format!("Temperatura: {v:.0} °C")).unwrap_or_else(|| "Temperatura: Não disponível".to_string())));
+    ui.set_metric_gpu_detail_b(SharedString::from(sample.gpu_utilization_percent.map(|v| format!("Utilização: {v:.0}%")).unwrap_or_else(|| "Utilização não disponível neste driver".to_string())));
+
+    let vram_percent = match (sample.gpu_mem_used_mb, sample.gpu_mem_total_mb) {
+        (Some(used), Some(total)) if total > 0.0 => Some((used / total * 100.0).clamp(0.0, 100.0)),
+        _ => None,
+    };
+    ui.set_metric_vram_available(vram_percent.is_some());
+    ui.set_metric_vram_percent(percent_int(vram_percent));
+    ui.set_metric_vram_value(SharedString::from(percent_text(vram_percent)));
+    ui.set_metric_vram_detail_a(SharedString::from(match (sample.gpu_mem_used_mb, sample.gpu_mem_total_mb) {
+        (Some(used), Some(total)) => format!("Em uso: {:.1} / {:.1} GiB", used / 1024.0, total / 1024.0),
+        _ => "Memória de vídeo indisponível".to_string(),
+    }));
+    ui.set_metric_vram_detail_b(SharedString::from(vram_percent.map(|v| format!("Uso da VRAM: {v:.0}%")).unwrap_or_else(|| "Uso da VRAM não disponível".to_string())));
+
+    let ram_percent = sample.mem_used_percent;
+    ui.set_metric_ram_value(SharedString::from(percent_text(ram_percent)));
+    ui.set_metric_ram_percent(percent_int(ram_percent));
+    ui.set_metric_ram_detail_a(SharedString::from(match (sample.mem_used_kb, sample.mem_total_kb) {
+        (Some(used), Some(total)) => format!("Em uso: {} / {}", format_gib(used), format_gib(total)),
+        _ => "Em uso: Não disponível".to_string(),
+    }));
+    ui.set_metric_ram_detail_b(SharedString::from(match (sample.mem_used_kb, sample.mem_total_kb) {
+        (Some(used), Some(total)) => format!("Disponível: {}", format_gib(total.saturating_sub(used))),
+        _ => "Disponível: Não disponível".to_string(),
+    }));
+
+    let swap_percent = sample.swap_used_percent;
+    let swap_available = sample.swap_total_kb.map(|value| value > 0).unwrap_or(false);
+    ui.set_metric_swap_available(swap_available);
+    ui.set_metric_swap_value(SharedString::from(if swap_available { percent_text(swap_percent) } else { "Sem swap ativo".to_string() }));
+    ui.set_metric_swap_percent(percent_int(swap_percent));
+    ui.set_metric_swap_detail_a(SharedString::from(match (sample.swap_used_kb, sample.swap_total_kb) {
+        (Some(used), Some(total)) if total > 0 => format!("Em uso: {} / {}", format_gib(used), format_gib(total)),
+        _ => "Swap não configurada ou indisponível".to_string(),
+    }));
+    ui.set_metric_swap_detail_b(SharedString::from(match (sample.swap_used_kb, sample.swap_total_kb) {
+        (Some(used), Some(total)) if total > 0 => format!("Disponível: {}", format_gib(total.saturating_sub(used))),
+        _ => "Sem espaço de swap disponível".to_string(),
+    }));
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -315,7 +410,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     });
 
-    // A detecção geral também permanece fora da UI thread.
+    // Monitoramento contínuo: coleta real em thread dedicada e atualização da UI pela event loop Slint.\n    let monitor_controller = monitor::MonitorController::new();\n    let monitor_for_interval = monitor_controller.clone();\n    ui.on_monitor_interval_changed(move |interval_ms| {\n        monitor_for_interval.set_interval(interval_ms.max(500) as u64);\n    });\n    let monitor_ui = ui.as_weak();\n    monitor_controller.start(move |sample| {\n        let _ = monitor_ui.upgrade_in_event_loop(move |ui| apply_metric_sample(&ui, sample));\n    })?;\n\n    // A detecção geral também permanece fora da UI thread.
     let ui_weak = ui.as_weak();
     std::thread::Builder::new()
         .name("gamefic-system-detection".to_string())

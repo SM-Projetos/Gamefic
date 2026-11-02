@@ -5,6 +5,7 @@ import { Sidebar } from "components/sidebar.slint";
 import { AppToolbar } from "components/app-toolbar.slint";
 import { AppsPage } from "pages/apps.slint";
 import { AppDetailPage } from "pages/app-detail.slint";
+import { PerformancePage } from "pages/performance.slint";
 
 component PlaceholderPage inherits Rectangle {
     in property <string> page-title;
@@ -88,11 +89,40 @@ export component GameficWindow inherits Window {
     in-out property <bool> action-busy: false;
     in-out property <bool> action-error: false;
     in-out property <string> action-message: "";
+    in-out property <int> monitor-interval-ms: 2000;
+    in-out property <string> metric-cpu-value: "—";
+    in-out property <string> metric-cpu-detail-a: "Aguardando primeira amostra";
+    in-out property <string> metric-cpu-detail-b: "Frequência média indisponível";
+    in-out property <int> metric-cpu-percent: 0;
+    in-out property <string> metric-network-value: "Aguardando dados";
+    in-out property <string> metric-network-detail-a: "Download: —";
+    in-out property <string> metric-network-detail-b: "Upload: —";
+    in-out property <string> metric-network-link: "Conexão não identificada";
+    in-out property <string> metric-gpu-value: "Não disponível";
+    in-out property <string> metric-gpu-detail-a: "Métricas dependem do driver";
+    in-out property <string> metric-gpu-detail-b: "Temperatura: —";
+    in-out property <int> metric-gpu-percent: 0;
+    in-out property <bool> metric-gpu-available: false;
+    in-out property <string> metric-vram-value: "Não disponível";
+    in-out property <string> metric-vram-detail-a: "Memória de vídeo indisponível";
+    in-out property <string> metric-vram-detail-b: "Uso: —";
+    in-out property <int> metric-vram-percent: 0;
+    in-out property <bool> metric-vram-available: false;
+    in-out property <string> metric-ram-value: "—";
+    in-out property <string> metric-ram-detail-a: "Em uso: —";
+    in-out property <string> metric-ram-detail-b: "Disponível: —";
+    in-out property <int> metric-ram-percent: 0;
+    in-out property <string> metric-swap-value: "—";
+    in-out property <string> metric-swap-detail-a: "Em uso: —";
+    in-out property <string> metric-swap-detail-b: "Disponível: —";
+    in-out property <int> metric-swap-percent: 0;
+    in-out property <bool> metric-swap-available: false;
 
     callback app-selected(string);
     callback app-detail-closed();
     callback source-action-requested(string, string, string);
     callback app-open-requested(string);
+    callback monitor-interval-changed(int);
 
     VerticalLayout {
         spacing: 0;
@@ -169,7 +199,42 @@ export component GameficWindow inherits Window {
                     }
                 }
 
-                if root.selected-page != "Apps" : PlaceholderPage {
+                if root.selected-page == "Desempenho" : PerformancePage {
+                    cpu-value: root.metric-cpu-value;
+                    cpu-detail-a: root.metric-cpu-detail-a;
+                    cpu-detail-b: root.metric-cpu-detail-b;
+                    cpu-percent: root.metric-cpu-percent;
+                    network-value: root.metric-network-value;
+                    network-detail-a: root.metric-network-detail-a;
+                    network-detail-b: root.metric-network-detail-b;
+                    network-link: root.metric-network-link;
+                    gpu-value: root.metric-gpu-value;
+                    gpu-detail-a: root.metric-gpu-detail-a;
+                    gpu-detail-b: root.metric-gpu-detail-b;
+                    gpu-percent: root.metric-gpu-percent;
+                    gpu-available: root.metric-gpu-available;
+                    vram-value: root.metric-vram-value;
+                    vram-detail-a: root.metric-vram-detail-a;
+                    vram-detail-b: root.metric-vram-detail-b;
+                    vram-percent: root.metric-vram-percent;
+                    vram-available: root.metric-vram-available;
+                    ram-value: root.metric-ram-value;
+                    ram-detail-a: root.metric-ram-detail-a;
+                    ram-detail-b: root.metric-ram-detail-b;
+                    ram-percent: root.metric-ram-percent;
+                    swap-value: root.metric-swap-value;
+                    swap-detail-a: root.metric-swap-detail-a;
+                    swap-detail-b: root.metric-swap-detail-b;
+                    swap-percent: root.metric-swap-percent;
+                    swap-available: root.metric-swap-available;
+                    interval-ms: root.monitor-interval-ms;
+                    interval-changed(ms) => {
+                        root.monitor-interval-ms = ms;
+                        root.monitor-interval-changed(ms);
+                    }
+                }
+
+                if root.selected-page != "Apps" && root.selected-page != "Desempenho" : PlaceholderPage {
                     page-title: root.selected-page;
                 }
             }
