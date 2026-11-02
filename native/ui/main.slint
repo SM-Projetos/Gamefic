@@ -1,9 +1,10 @@
 import { Theme } from "themes.slint";
-import { AppCardData } from "models.slint";
+import { AppCardData, AppSourceData } from "models.slint";
 import { WindowTitleBar } from "components/window-titlebar.slint";
 import { Sidebar } from "components/sidebar.slint";
 import { AppToolbar } from "components/app-toolbar.slint";
 import { AppsPage } from "pages/apps.slint";
+import { AppDetailPage } from "pages/app-detail.slint";
 
 component PlaceholderPage inherits Rectangle {
     in property <string> page-title;
@@ -74,8 +75,18 @@ export component GameficWindow inherits Window {
     in-out property <[AppCardData]> emulators: [];
     in-out property <[AppCardData]> game-tools: [];
     in-out property <[AppCardData]> compatibility: [];
+    in-out property <string> selected-app-id: "";
+    in-out property <bool> detail-loading: false;
+    in-out property <string> detail-error: "";
+    in-out property <string> detail-name: "";
+    in-out property <string> detail-vendor: "";
+    in-out property <string> detail-license: "";
+    in-out property <string> detail-summary: "";
+    in-out property <string> detail-description: "";
+    in-out property <[AppSourceData]> detail-sources: [];
 
     callback app-selected(string);
+    callback app-detail-closed();
 
     VerticalLayout {
         spacing: 0;
@@ -110,15 +121,37 @@ export component GameficWindow inherits Window {
                     settings-requested => { root.selected-page = "Configurações"; }
                 }
 
-                if root.selected-page == "Apps" : AppsPage {
+                if root.selected-page == "Apps" && root.selected-app-id == "" : AppsPage {
                     launchers: root.launchers;
                     emulators: root.emulators;
                     game-tools: root.game-tools;
                     compatibility: root.compatibility;
                     catalog-loaded: root.catalog-loaded;
                     app-selected(id) => {
+                        root.selected-app-id = id;
+                        root.detail-loading = true;
+                        root.detail-error = "";
+                        root.detail-sources = [];
                         root.app-selected(id);
-                        root.system-status = "Aplicativo selecionado · " + id;
+                        root.system-status = "Consultando aplicativo · " + id;
+                    }
+                }
+
+                if root.selected-page == "Apps" && root.selected-app-id != "" : AppDetailPage {
+                    app-name: root.detail-name;
+                    app-id: root.selected-app-id;
+                    vendor: root.detail-vendor;
+                    license: root.detail-license;
+                    summary: root.detail-summary;
+                    description: root.detail-description;
+                    sources: root.detail-sources;
+                    loading: root.detail-loading;
+                    error: root.detail-error;
+                    back-requested => {
+                        root.selected-app-id = "";
+                        root.detail-loading = false;
+                        root.app-detail-closed();
+                        root.system-status = "Catálogo de aplicativos";
                     }
                 }
 

@@ -1,0 +1,219 @@
+import { Theme } from "../themes.slint";
+import { AppSourceData } from "../models.slint";
+import { ScrollView } from "std-widgets.slint";
+
+export component AppDetailPage inherits Rectangle {
+    in property <string> app-name;
+    in property <string> app-id;
+    in property <string> vendor;
+    in property <string> license;
+    in property <string> summary;
+    in property <string> description;
+    in property <[AppSourceData]> sources;
+    in property <bool> loading: false;
+    in property <string> error: "";
+
+    callback back-requested();
+
+    background: Theme.content-bg;
+
+    ScrollView {
+        width: 100%;
+        height: 100%;
+        content-width: self.width;
+        content-height: 1050px;
+
+        VerticalLayout {
+            padding-left: 28px;
+            padding-right: 28px;
+            padding-top: 24px;
+            padding-bottom: 32px;
+            spacing: 18px;
+
+            HorizontalLayout {
+                height: 42px;
+                spacing: 12px;
+
+                Rectangle {
+                    width: 40px;
+                    height: 36px;
+                    border-radius: 10px;
+                    border-width: 1px;
+                    border-color: Theme.card-border;
+                    background: Theme.control-bg;
+
+                    Text {
+                        text: "‹";
+                        color: Theme.accent;
+                        font-size: 25px;
+                        font-weight: 700;
+                        horizontal-alignment: center;
+                        vertical-alignment: center;
+                    }
+
+                    touch := TouchArea {
+                        clicked => { root.back-requested(); }
+                    }
+                }
+
+                VerticalLayout {
+                    spacing: 2px;
+                    Text {
+                        text: "Detalhes do aplicativo";
+                        color: Theme.text-primary;
+                        font-size: 18px;
+                        font-weight: 700;
+                    }
+                    Text {
+                        text: root.app-id;
+                        color: Theme.text-muted;
+                        font-size: 10px;
+                    }
+                }
+            }
+
+            if root.loading : Rectangle {
+                height: 100px;
+                border-radius: 14px;
+                border-width: 1px;
+                border-color: Theme.card-border;
+                background: Theme.card-bg;
+                Text {
+                    text: "Consultando informações locais do sistema…";
+                    color: Theme.text-secondary;
+                    horizontal-alignment: center;
+                    vertical-alignment: center;
+                }
+            }
+
+            if root.error != "" : Rectangle {
+                height: 76px;
+                border-radius: 12px;
+                border-width: 1px;
+                border-color: Theme.warning;
+                background: Theme.card-bg;
+                Text {
+                    text: root.error;
+                    color: Theme.warning;
+                    wrap: word-wrap;
+                    vertical-alignment: center;
+                }
+            }
+
+            if !root.loading && root.error == "" : VerticalLayout {
+                spacing: 15px;
+
+                Rectangle {
+                    border-radius: 16px;
+                    border-width: 1px;
+                    border-color: Theme.card-border;
+                    background: Theme.card-bg;
+                    VerticalLayout {
+                        padding: 22px;
+                        spacing: 9px;
+
+                        Text {
+                            text: root.app-name;
+                            color: Theme.text-primary;
+                            font-size: 25px;
+                            font-weight: 800;
+                        }
+                        Text {
+                            text: root.summary;
+                            color: Theme.accent;
+                            font-size: 13px;
+                            font-weight: 600;
+                            wrap: word-wrap;
+                        }
+                        Text {
+                            text: root.description;
+                            color: Theme.text-secondary;
+                            font-size: 12px;
+                            wrap: word-wrap;
+                        }
+                        HorizontalLayout {
+                            spacing: 18px;
+                            Text {
+                                text: "Desenvolvedor: " + root.vendor;
+                                color: Theme.text-muted;
+                                font-size: 10px;
+                                wrap: word-wrap;
+                            }
+                            Text {
+                                text: "Licença: " + root.license;
+                                color: Theme.text-muted;
+                                font-size: 10px;
+                                wrap: word-wrap;
+                            }
+                        }
+                    }
+                }
+
+                VerticalLayout {
+                    spacing: 10px;
+                    Text {
+                        text: "Fontes de instalação";
+                        color: Theme.text-primary;
+                        font-size: 18px;
+                        font-weight: 700;
+                    }
+                    Text {
+                        text: "Disponibilidade e versões consultadas no sistema. Nenhuma operação é executada nesta etapa.";
+                        color: Theme.text-secondary;
+                        font-size: 11px;
+                        wrap: word-wrap;
+                    }
+
+                    for source in root.sources : Rectangle {
+                        border-radius: 13px;
+                        border-width: 1px;
+                        border-color: Theme.card-border;
+                        background: Theme.card-bg;
+
+                        VerticalLayout {
+                            padding: 15px;
+                            spacing: 7px;
+
+                            HorizontalLayout {
+                                spacing: 10px;
+                                Text {
+                                    text: source.name;
+                                    color: Theme.text-primary;
+                                    font-size: 13px;
+                                    font-weight: 700;
+                                }
+                                Rectangle {
+                                    horizontal-stretch: 1;
+                                    background: transparent;
+                                }
+                                Text {
+                                    text: source.installed ? "Instalado" : source.available ? "Disponível" : source.indeterminate ? "Verificação pendente" : "Indisponível";
+                                    color: source.installed ? Theme.success : source.available ? Theme.accent : source.indeterminate ? Theme.warning : Theme.text-muted;
+                                    font-size: 10px;
+                                    font-weight: 700;
+                                }
+                            }
+
+                            if source.version != "" : Text {
+                                text: "Versão instalada: " + source.version;
+                                color: Theme.text-secondary;
+                                font-size: 11px;
+                            }
+                            if source.repository_version != "" : Text {
+                                text: "Versão no repositório: " + source.repository_version;
+                                color: Theme.text-secondary;
+                                font-size: 11px;
+                            }
+                            if source.reason != "" : Text {
+                                text: source.reason;
+                                color: Theme.text-muted;
+                                font-size: 10px;
+                                wrap: word-wrap;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

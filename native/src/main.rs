@@ -9,6 +9,7 @@ slint::include_modules!();
 
 use slint::{ComponentHandle, ModelRc, SharedString, VecModel};
 use std::rc::Rc;
+use std::sync::{Arc, atomic::{AtomicU64, Ordering}};
 
 fn glyph_for(id: &str, name: &str) -> String {
     match id.to_ascii_lowercase().as_str() {
@@ -85,6 +86,48 @@ fn tool_cards(entries: &[system::ToolInfo]) -> ModelRc<AppCardData> {
     Rc::new(VecModel::from(cards)).into()
 }
 
+
+fn source_label(source: &str) -> String {
+    if let Some(package) = source.strip_prefix("nativo:") {
+        format!("Repositório da distribuição · {package}")
+    } else if source == "flatpak" {
+        "Flatpak · sistema".to_string()
+    } else if source == "flatpak-user" {
+        "Flatpak · usuário".to_string()
+    } else if let Some(package) = source.strip_prefix("snap:") {
+        format!("Snap Store · {package}")
+    } else {
+        source.to_string()
+    }
+}
+
+fn source_cards(entries: &[system::install::FonteInfo]) -> ModelRc<AppSourceData> {
+    let sources = entries
+        .iter()
+        .map(|entry| AppSourceData {
+            name: SharedString::from(source_label(&entry.fonte)),
+            available: entry.disponivel,
+            installed: entry.instalado,
+            version: SharedString::from(entry.versao.as_deref().unwrap_or("")),
+            repository_version: SharedString::from(entry.versao_repo.as_deref().unwrap_or("")),
+            reason: SharedString::from(entry.motivo.as_deref().unwrap_or("")),
+            indeterminate: entry.indeterminado,
+        })
+        .collect::<Vec<_>>();
+    Rc::new(VecModel::from(sources)).into()
+}
+
+fn apply_detail(ui: &GameficWindow, detail: system::install::AppDetail) {
+    ui.set_detail_name(SharedString::from(detail.nome));
+    ui.set_detail_vendor(SharedString::from(detail.fornecedor));
+    ui.set_detail_license(SharedString::from(detail.licenca));
+    ui.set_detail_summary(SharedString::from(detail.desc_curta));
+    ui.set_detail_description(SharedString::from(detail.desc_longa));
+    ui.set_detail_sources(source_cards(&detail.fontes));
+    ui.set_detail_error(SharedString::default());
+    ui.set_detail_loading(false);
+}
+
 fn apply_snapshot(ui: &GameficWindow, snapshot: &system::SystemSnapshot) {
     ui.set_launchers(app_cards(&snapshot.launchers));
     ui.set_emulators(app_cards(&snapshot.emuladores));
@@ -112,8 +155,57 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         ui.set_system_status(SharedString::from(status_from_snapshot(&cached)));
     }
 
-    // A fresh detection runs outside the UI thread. Only the Slint event loop
-    // is allowed to mutate component properties.
+    // Detalhes são consultados em background; somente a event loop Slint
+    // altera propriedades da interface. O contador invalida respostas antigas.
+    let detail_generation = Arc::new(AtomicU64::new(0));
+    let detail_ui = ui.as_weak();
+    let generation_on_select = Arc::clone(&detail_generation);
+    ui.on_app_selected(move |app_id| {
+        let request = generation_on_select.fetch_add(1, Ordering::SeqCst) + 1;
+        let generation = Arc::clone(&generation_on_select);
+        let ui_for_worker = detail_ui.clone();
+        let ui_for_failure = detail_ui.clone();
+        let id = app_id.to_string();
+
+        let worker = std::thread::Builder::new()
+            .name("gamefic-app-detail".to_string())
+            .spawn(move || {
+                let detail = system::install::detail(&id);
+                let _ = ui_for_worker.upgrade_in_event_loop(move |ui| {
+                    if generation.load(Ordering::SeqCst) != request {
+                        return;
+                    }
+                    match detail {
+                        Some(detail) => apply_detail(&ui, detail),
+                        None => {
+                            ui.set_detail_loading(false);
+                            ui.set_detail_error(SharedString::from(
+                                "Não foi possível carregar os detalhes deste aplicativo.",
+                            ));
+                        }
+                    }
+                });
+            });
+
+        if worker.is_err() {
+            let generation = Arc::clone(&generation_on_select);
+            let _ = ui_for_failure.upgrade_in_event_loop(move |ui| {
+                if generation.load(Ordering::SeqCst) == request {
+                    ui.set_detail_loading(false);
+                    ui.set_detail_error(SharedString::from(
+                        "Não foi possível iniciar a consulta em segundo plano.",
+                    ));
+                }
+            });
+        }
+    });
+
+    let generation_on_close = Arc::clone(&detail_generation);
+    ui.on_app_detail_closed(move || {
+        generation_on_close.fetch_add(1, Ordering::SeqCst);
+    });
+
+    // A detecção geral também permanece fora da UI thread.
     let ui_weak = ui.as_weak();
     std::thread::Builder::new()
         .name("gamefic-system-detection".to_string())
