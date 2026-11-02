@@ -75,7 +75,7 @@ export component GameficWindow inherits Window {
     in-out property <[AppCardData]> game-tools: [];
     in-out property <[AppCardData]> compatibility: [];
 
-    Theme.dark: root.dark-theme;
+    in-out property <bool> dark-theme <=> Theme.dark;
 
     callback app-selected(string);
 
@@ -122,7 +122,9 @@ export component GameficWindow inherits Window {
                         root.app-selected(id);
                         root.system-status = "Aplicativo selecionado · " + id;
                     }
-                } else : PlaceholderPage {
+                }
+
+                if root.selected-page != "Apps" : PlaceholderPage {
                     page-title: root.selected-page;
                 }
             }
