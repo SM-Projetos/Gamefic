@@ -11,9 +11,9 @@ export component SectionHeader inherits Rectangle {
         spacing: 10px;
 
         Rectangle {
-            width: 5px;
-            height: 23px;
-            border-radius: 3px;
+            width: 3px;
+            height: 20px;
+            border-radius: 2px;
             background: Theme.accent;
             vertical-stretch: 0;
         }
@@ -22,20 +22,14 @@ export component SectionHeader inherits Rectangle {
             text: root.title;
             color: Theme.text-primary;
             font-size: 18px;
-            font-weight: 700;
+            font-weight: 650;
             vertical-alignment: center;
         }
 
         Rectangle {
             horizontal-stretch: 1;
-            background: transparent;
-        }
-
-        Text {
-            text: "VER TODOS  →";
-            color: Theme.accent;
-            font-size: 10px;
-            font-weight: 700;
+            height: 1px;
+            background: Theme.divider;
             vertical-alignment: center;
         }
     }
