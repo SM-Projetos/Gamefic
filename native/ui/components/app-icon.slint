@@ -1,0 +1,49 @@
+import { Theme } from "../themes.slint";
+
+export component AppIcon inherits Rectangle {
+    in property <string> app-id;
+    in property <string> glyph;
+    in property <bool> raster-icon: false;
+
+    width: 52px;
+    height: 52px;
+    border-radius: 14px;
+    background: Theme.icon-tile;
+    border-width: 1px;
+    border-color: Theme.card-border;
+
+    Image {
+        visible: root.raster-icon;
+        width: 44px;
+        height: 44px;
+        x: (root.width - self.width) / 2;
+        y: (root.height - self.height) / 2;
+        image-fit: contain;
+        source: root.app-id == "steam"
+            ? @image-url("../../../src-tauri/assets/icons/steam.png")
+            : root.app-id == "heroic" || root.app-id == "heroic-games-launcher"
+                ? @image-url("../../../src-tauri/assets/icons/heroic.png")
+                : root.app-id == "itch" || root.app-id == "itchio"
+                    ? @image-url("../../../src-tauri/assets/icons/itch.png")
+                    : root.app-id == "minigalaxy"
+                        ? @image-url("../../../src-tauri/assets/icons/minigalaxy.png")
+                        : root.app-id == "pcsx2"
+                            ? @image-url("../../../src-tauri/assets/icons/pcsx2.png")
+                            : root.app-id == "ppsspp"
+                                ? @image-url("../../../src-tauri/assets/icons/ppsspp.png")
+                                : root.app-id == "duckstation"
+                                    ? @image-url("../../../src-tauri/assets/icons/duck.png")
+                                    : root.app-id == "gamemode"
+                                        ? @image-url("../../../src-tauri/assets/icons/gamemode.png")
+                                        : @image-url("../../../src-tauri/assets/icons/protontricks.png");
+    }
+
+    if !root.raster-icon : Text {
+        text: root.glyph;
+        color: Theme.accent;
+        font-size: 22px;
+        font-weight: 800;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+    }
+}

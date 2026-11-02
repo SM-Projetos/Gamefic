@@ -1,0 +1,42 @@
+import { Theme } from "../themes.slint";
+
+export component SectionHeader inherits Rectangle {
+    in property <string> title;
+    width: 100%;
+    height: 28px;
+
+    HorizontalLayout {
+        width: 100%;
+        height: 100%;
+        spacing: 10px;
+
+        Rectangle {
+            width: 5px;
+            height: 23px;
+            border-radius: 3px;
+            background: Theme.accent;
+            vertical-stretch: 0;
+        }
+
+        Text {
+            text: root.title;
+            color: Theme.text-primary;
+            font-size: 18px;
+            font-weight: 700;
+            vertical-alignment: center;
+        }
+
+        Rectangle {
+            horizontal-stretch: 1;
+            background: transparent;
+        }
+
+        Text {
+            text: "VER TODOS  →";
+            color: Theme.accent;
+            font-size: 10px;
+            font-weight: 700;
+            vertical-alignment: center;
+        }
+    }
+}

@@ -1,0 +1,131 @@
+import { Theme } from "themes.slint";
+import { AppCardData } from "models.slint";
+import { WindowTitleBar } from "components/window-titlebar.slint";
+import { Sidebar } from "components/sidebar.slint";
+import { AppToolbar } from "components/app-toolbar.slint";
+import { AppsPage } from "pages/apps.slint";
+
+component PlaceholderPage inherits Rectangle {
+    in property <string> page-title;
+
+    background: Theme.content-bg;
+
+    VerticalLayout {
+        padding: 34px;
+        spacing: 14px;
+
+        Text {
+            text: root.page-title;
+            color: Theme.text-primary;
+            font-size: 28px;
+            font-weight: 800;
+        }
+
+        Rectangle {
+            height: 150px;
+            border-radius: 18px;
+            border-width: 1px;
+            border-color: Theme.card-border;
+            background: Theme.card-bg;
+
+            VerticalLayout {
+                padding: 24px;
+                spacing: 8px;
+                alignment: center;
+
+                Text {
+                    text: "Esta tela será migrada para Slint.";
+                    color: Theme.text-primary;
+                    font-size: 18px;
+                    font-weight: 700;
+                    horizontal-alignment: center;
+                }
+
+                Text {
+                    text: "A implementação Tauri original continua preservada durante a migração.";
+                    color: Theme.text-secondary;
+                    font-size: 12px;
+                    horizontal-alignment: center;
+                    wrap: word-wrap;
+                }
+            }
+        }
+    }
+}
+
+export component GameficWindow inherits Window {
+    title: "Gamefic";
+    no-frame: true;
+    resize-border-width: 8px;
+    preferred-width: 1540px;
+    preferred-height: 960px;
+    min-width: 1080px;
+    min-height: 700px;
+    background: Theme.window-bg;
+    default-font-family: "Inter";
+    default-font-size: 14px;
+
+    in-out property <bool> dark-theme: true;
+    in-out property <string> selected-page: "Apps";
+    in-out property <string> system-status: "Detectando sistema...";
+    in-out property <int> update-count: 0;
+    in-out property <bool> catalog-loaded: false;
+    in-out property <[AppCardData]> launchers: [];
+    in-out property <[AppCardData]> emulators: [];
+    in-out property <[AppCardData]> game-tools: [];
+    in-out property <[AppCardData]> compatibility: [];
+
+    Theme.dark: root.dark-theme;
+
+    callback app-selected(string);
+
+    VerticalLayout {
+        spacing: 0;
+
+        WindowTitleBar {
+            minimize-requested => { root.minimized = true; }
+            maximize-requested => { root.maximized = !root.maximized; }
+            close-requested => { root.close(); }
+        }
+
+        HorizontalLayout {
+            spacing: 0;
+
+            Sidebar {
+                selected-page: root.selected-page;
+                navigate(page) => { root.selected-page = page; }
+            }
+
+            VerticalLayout {
+                spacing: 0;
+
+                AppToolbar {
+                    page-title: root.selected-page;
+                    status-text: root.system-status;
+                    update-count: root.update-count;
+                    dark-theme: root.dark-theme;
+
+                    toggle-theme => { root.dark-theme = !root.dark-theme; }
+                    updates-requested => {
+                        root.system-status = "O painel de atualizações será migrado na próxima etapa.";
+                    }
+                    settings-requested => { root.selected-page = "Configurações"; }
+                }
+
+                if root.selected-page == "Apps" : AppsPage {
+                    launchers: root.launchers;
+                    emulators: root.emulators;
+                    game-tools: root.game-tools;
+                    compatibility: root.compatibility;
+                    catalog-loaded: root.catalog-loaded;
+                    app-selected(id) => {
+                        root.app-selected(id);
+                        root.system-status = "Aplicativo selecionado · " + id;
+                    }
+                } else : PlaceholderPage {
+                    page-title: root.selected-page;
+                }
+            }
+        }
+    }
+}

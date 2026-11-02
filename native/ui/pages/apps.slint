@@ -1,0 +1,172 @@
+import { Theme } from "../themes.slint";
+import { AppCardData } from "../models.slint";
+import { ScrollView } from "std-widgets.slint";
+import { AppCard } from "../components/app-card.slint";
+import { SectionHeader } from "../components/section-header.slint";
+
+export component AppsPage inherits Rectangle {
+    in property <[AppCardData]> launchers;
+    in property <[AppCardData]> emulators;
+    in property <[AppCardData]> game-tools;
+    in property <[AppCardData]> compatibility;
+    in property <bool> catalog-loaded: false;
+    callback app-selected(string);
+
+    background: Theme.content-bg;
+
+    ScrollView {
+        width: 100%;
+        height: 100%;
+        content-width: self.width;
+        content-height: 1260px;
+
+        VerticalLayout {
+            padding-left: 26px;
+            padding-right: 26px;
+            padding-top: 23px;
+            padding-bottom: 34px;
+            spacing: 21px;
+
+            VerticalLayout {
+                spacing: 5px;
+
+                Text {
+                    text: "Apps";
+                    color: Theme.text-primary;
+                    font-size: 28px;
+                    font-weight: 800;
+                }
+
+                Text {
+                    text: "Descubra e gerencie aplicativos e ferramentas para uma experiência ainda melhor no Linux.";
+                    color: Theme.text-secondary;
+                    font-size: 12px;
+                    wrap: word-wrap;
+                }
+
+                if !root.catalog-loaded : Text {
+                    text: "Carregando catálogo do sistema…";
+                    color: Theme.text-muted;
+                    font-size: 10px;
+                }
+            }
+
+            VerticalLayout {
+                spacing: 11px;
+                SectionHeader { title: "Launchers"; }
+
+                ScrollView {
+                    width: 100%;
+                    height: 182px;
+                    content-width: 1500px;
+                    content-height: 182px;
+                    mouse-drag-pan-enabled: true;
+
+                    HorizontalLayout {
+                        spacing: 14px;
+                        padding-top: 3px;
+                        padding-bottom: 8px;
+
+                        for app in root.launchers : AppCard {
+                            app-id: app.id;
+                            app-name: app.name;
+                            description: app.description;
+                            state: app.state;
+                            glyph: app.glyph;
+                            raster-icon: app.raster_icon;
+                            featured: app.id == "steam";
+                            activated(id) => { root.app-selected(id); }
+                        }
+                    }
+                }
+            }
+
+            VerticalLayout {
+                spacing: 11px;
+                SectionHeader { title: "Emuladores"; }
+
+                ScrollView {
+                    width: 100%;
+                    height: 182px;
+                    content-width: 1500px;
+                    content-height: 182px;
+                    mouse-drag-pan-enabled: true;
+
+                    HorizontalLayout {
+                        spacing: 14px;
+                        padding-top: 3px;
+                        padding-bottom: 8px;
+
+                        for app in root.emulators : AppCard {
+                            app-id: app.id;
+                            app-name: app.name;
+                            description: app.description;
+                            state: app.state;
+                            glyph: app.glyph;
+                            raster-icon: app.raster_icon;
+                            activated(id) => { root.app-selected(id); }
+                        }
+                    }
+                }
+            }
+
+            VerticalLayout {
+                spacing: 11px;
+                SectionHeader { title: "Ferramentas de jogos"; }
+
+                ScrollView {
+                    width: 100%;
+                    height: 182px;
+                    content-width: 1500px;
+                    content-height: 182px;
+                    mouse-drag-pan-enabled: true;
+
+                    HorizontalLayout {
+                        spacing: 14px;
+                        padding-top: 3px;
+                        padding-bottom: 8px;
+
+                        for app in root.game-tools : AppCard {
+                            app-id: app.id;
+                            app-name: app.name;
+                            description: app.description;
+                            state: app.state;
+                            glyph: app.glyph;
+                            raster-icon: app.raster_icon;
+                            activated(id) => { root.app-selected(id); }
+                        }
+                    }
+                }
+            }
+
+            VerticalLayout {
+                spacing: 11px;
+                SectionHeader { title: "Compatibilidade"; }
+
+                ScrollView {
+                    width: 100%;
+                    height: 182px;
+                    content-width: 1500px;
+                    content-height: 182px;
+                    mouse-drag-pan-enabled: true;
+
+                    HorizontalLayout {
+                        spacing: 14px;
+                        padding-top: 3px;
+                        padding-bottom: 8px;
+
+                        for app in root.compatibility : AppCard {
+                            app-id: app.id;
+                            app-name: app.name;
+                            description: app.description;
+                            state: app.state;
+                            glyph: app.glyph;
+                            raster-icon: app.raster_icon;
+                            activated(id) => { root.app-selected(id); }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

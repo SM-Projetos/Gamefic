@@ -1,0 +1,23 @@
+import { Theme } from "../themes.slint";
+
+export component StatusBadge inherits Rectangle {
+    in property <string> state: "desconhecido";
+
+    width: root.state == "instalado" ? 112px
+        : root.state == "nao_instalado" ? 142px : 124px;
+    height: 27px;
+    border-radius: 14px;
+    background: root.state == "instalado" ? Theme.success
+        : root.state == "nao_instalado" ? Theme.info : Theme.warning;
+
+    Text {
+        text: root.state == "instalado" ? "✓  Instalado"
+            : root.state == "nao_instalado" ? "↓  Não instalado"
+            : "◌  Verificando";
+        color: #ffffff;
+        font-size: 11px;
+        font-weight: 700;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+    }
+}

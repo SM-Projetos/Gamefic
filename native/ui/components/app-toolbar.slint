@@ -1,0 +1,140 @@
+import { Theme } from "../themes.slint";
+
+component ToolbarAction inherits Rectangle {
+    in property <string> glyph;
+    in property <string> label;
+    in property <int> count: 0;
+    callback activated();
+
+    height: 38px;
+    min-width: 40px;
+    border-radius: 19px;
+    border-width: 1px;
+    border-color: Theme.card-border;
+    background: touch.has-hover ? Theme.control-hover : Theme.control-bg;
+
+    HorizontalLayout {
+        padding-left: 12px;
+        padding-right: 12px;
+        spacing: 7px;
+        vertical-alignment: center;
+
+        Text {
+            text: root.glyph;
+            color: Theme.accent;
+            font-size: 15px;
+            font-weight: 700;
+        }
+
+        Text {
+            text: root.label;
+            color: Theme.text-primary;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        if root.count > 0 : Rectangle {
+            width: 21px;
+            height: 21px;
+            border-radius: 11px;
+            background: Theme.accent;
+
+            Text {
+                text: "\{root.count}";
+                color: #ffffff;
+                font-size: 11px;
+                font-weight: 700;
+                horizontal-alignment: center;
+                vertical-alignment: center;
+            }
+        }
+    }
+
+    touch := TouchArea {
+        clicked => { root.activated(); }
+    }
+}
+
+export component AppToolbar inherits Rectangle {
+    in property <string> page-title: "Apps";
+    in property <string> status-text: "Detectando sistema...";
+    in property <int> update-count: 0;
+    in property <bool> dark-theme: true;
+
+    callback toggle-theme();
+    callback updates-requested();
+    callback settings-requested();
+
+    height: 68px;
+    background: Theme.toolbar-bg;
+    border-bottom-width: 1px;
+    border-bottom-color: Theme.divider;
+
+    HorizontalLayout {
+        spacing: 12px;
+        padding-left: 26px;
+        padding-right: 22px;
+        vertical-alignment: center;
+
+        Text {
+            text: root.page-title;
+            color: Theme.text-primary;
+            font-size: 21px;
+            font-weight: 700;
+        }
+
+        Rectangle {
+            horizontal-stretch: 1;
+            background: transparent;
+        }
+
+        Rectangle {
+            height: 34px;
+            border-radius: 17px;
+            border-width: 1px;
+            border-color: Theme.card-border;
+            background: Theme.card-bg;
+
+            HorizontalLayout {
+                padding-left: 11px;
+                padding-right: 12px;
+                spacing: 7px;
+                vertical-alignment: center;
+
+                Rectangle {
+                    width: 8px;
+                    height: 8px;
+                    border-radius: 4px;
+                    background: #08c879;
+                }
+
+                Text {
+                    text: root.status-text;
+                    color: Theme.text-secondary;
+                    font-size: 11px;
+                    vertical-alignment: center;
+                    overflow: elide;
+                }
+            }
+        }
+
+        ToolbarAction {
+            glyph: "↻";
+            label: "Atualizações";
+            count: root.update-count;
+            activated => { root.updates-requested(); }
+        }
+
+        ToolbarAction {
+            glyph: root.dark-theme ? "☼" : "◐";
+            label: root.dark-theme ? "Tema escuro" : "Tema claro";
+            activated => { root.toggle-theme(); }
+        }
+
+        ToolbarAction {
+            glyph: "⚙";
+            label: "Configurações";
+            activated => { root.settings-requested(); }
+        }
+    }
+}

@@ -1,0 +1,98 @@
+import { Theme } from "../themes.slint";
+import { AppIcon } from "app-icon.slint";
+import { StatusBadge } from "status-badge.slint";
+
+export component AppCard inherits Rectangle {
+    in property <string> app-id;
+    in property <string> app-name;
+    in property <string> description;
+    in property <string> state: "desconhecido";
+    in property <string> glyph;
+    in property <bool> raster-icon: false;
+    in property <bool> featured: false;
+    callback activated(string);
+
+    width: 220px;
+    height: 174px;
+    border-radius: 17px;
+    border-width: root.featured ? 2px : 1px;
+    border-color: root.featured ? Theme.accent : Theme.card-border;
+    background: Theme.card-bg;
+    drop-shadow-color: root.featured ? #00c9ef33 : Theme.card-shadow;
+    drop-shadow-blur: root.featured ? 18px : 9px;
+    drop-shadow-offset-y: 4px;
+
+    VerticalLayout {
+        padding: 14px;
+        spacing: 9px;
+
+        HorizontalLayout {
+            height: 52px;
+            spacing: 11px;
+            vertical-alignment: center;
+
+            AppIcon {
+                app-id: root.app-id;
+                glyph: root.glyph;
+                raster-icon: root.raster-icon;
+            }
+
+            Text {
+                text: root.app-name;
+                color: Theme.text-primary;
+                font-size: 14px;
+                font-weight: 700;
+                wrap: word-wrap;
+                max-lines: 2;
+                vertical-alignment: center;
+            }
+        }
+
+        Text {
+            text: root.description;
+            color: Theme.text-secondary;
+            font-size: 11px;
+            wrap: word-wrap;
+            max-lines: 2;
+            height: 34px;
+            vertical-alignment: top;
+        }
+
+        HorizontalLayout {
+            height: 30px;
+            spacing: 8px;
+            vertical-alignment: center;
+
+            StatusBadge {
+                state: root.state;
+            }
+
+            Rectangle {
+                horizontal-stretch: 1;
+                background: transparent;
+            }
+
+            Rectangle {
+                width: 31px;
+                height: 31px;
+                border-radius: 16px;
+                border-width: 1px;
+                border-color: Theme.card-border;
+                background: Theme.control-bg;
+
+                Text {
+                    text: "›";
+                    color: Theme.accent;
+                    font-size: 23px;
+                    font-weight: 700;
+                    horizontal-alignment: center;
+                    vertical-alignment: center;
+                }
+            }
+        }
+    }
+
+    touch := TouchArea {
+        clicked => { root.activated(root.app-id); }
+    }
+}

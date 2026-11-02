@@ -3,7 +3,22 @@
 Aplicativo desktop para Linux voltado à otimização do computador para jogos: detecta hardware e sistema, monitora desempenho, consulta kernels/drivers e organiza ajustes com histórico de eventos.
 
 - **Licença:** GPL-3.0-only (`LICENSE`)
-- **Stack:** Tauri 2 · Rust · TypeScript · HTML/CSS
+- **Stack legado:** Tauri 2 · Rust · TypeScript · HTML/CSS
+- **Stack nativo em migração:** Rust · Slint 1.18.1
+
+## Migração nativa para Slint
+
+A branch `gamefic-slint` inicia a migração progressiva de Tauri para uma interface desktop nativa em Slint. Os mockups aprovados (temas escuro e claro) são a referência visual obrigatória: barra de título própria sem decoração nativa, barra de ferramentas interna, sidebar, cards, estados, tipografia e componentes reutilizáveis. O objetivo é consolidar um Design System que possa ser compartilhado por outros aplicativos.
+
+O novo crate fica em `native/`. Ele reutiliza diretamente os módulos Rust independentes de Tauri em `src-tauri/src/system/`, sem copiar a lógica de detecção. O snapshot em cache é apresentado primeiro, e a detecção atualiza a interface em segundo plano pela event loop do Slint.
+
+Para executar a primeira versão nativa:
+
+```sh
+cargo run --manifest-path native/Cargo.toml
+```
+
+Requisitos da nova interface: Rust 1.92 ou superior (necessário pelo Slint 1.18) e toolchain de compilação para o backend Winit. Esta etapa ainda não substitui o empacotamento Tauri nem migra ações de instalação, monitoramento, histórico ou MangoHud.
 
 ## Requisitos de desenvolvimento (Arch/CachyOS)
 
@@ -30,6 +45,7 @@ npx tsc --noEmit                  # tipos do frontend
 
 ## Estrutura
 
+- `native/` — nova aplicação desktop nativa em Slint, com Design System compartilhado e migração gradual das telas e serviços
 - `src/` — frontend (TypeScript, tokens de design, componentes, gráficos)
 - `src-tauri/src/system/` — detecção real (distro, kernel, CPU, memória, GPU, Vulkan, sensores, ferramentas)
 - `src-tauri/src/system/appinfo.rs` — catálogo de apps e ferramentas (aba Apps e Criação de Conteúdo), com fontes nativas/Flatpak/Snap confirmadas de verdade

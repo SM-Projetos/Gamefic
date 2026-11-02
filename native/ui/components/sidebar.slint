@@ -1,0 +1,185 @@
+import { Theme } from "../themes.slint";
+
+component NavigationItem inherits Rectangle {
+    in property <string> label;
+    in property <string> glyph;
+    in property <bool> selected;
+    callback activated();
+
+    height: 40px;
+    border-radius: 13px;
+    background: root.selected
+        ? Theme.accent-soft
+        : touch.has-hover ? Theme.control-hover : transparent;
+    border-width: root.selected ? 1px : 0px;
+    border-color: root.selected ? Theme.accent-border : transparent;
+
+    HorizontalLayout {
+        spacing: 12px;
+        padding-left: 12px;
+        padding-right: 10px;
+        vertical-alignment: center;
+
+        Text {
+            text: root.glyph;
+            width: 24px;
+            color: root.selected ? Theme.accent : Theme.text-secondary;
+            font-size: 19px;
+            font-weight: 700;
+            horizontal-alignment: center;
+            vertical-alignment: center;
+        }
+
+        Text {
+            text: root.label;
+            color: root.selected ? Theme.text-primary : Theme.text-secondary;
+            font-size: 13px;
+            font-weight: root.selected ? 700 : 500;
+            vertical-alignment: center;
+            wrap: word-wrap;
+        }
+    }
+
+    touch := TouchArea {
+        clicked => { root.activated(); }
+    }
+}
+
+export component Sidebar inherits Rectangle {
+    in property <string> selected-page: "Apps";
+    callback navigate(string);
+
+    width: 222px;
+    background: Theme.sidebar-bg;
+    border-right-width: 1px;
+    border-right-color: Theme.divider;
+
+    VerticalLayout {
+        padding-left: 16px;
+        padding-right: 16px;
+        padding-top: 16px;
+        padding-bottom: 14px;
+        spacing: 6px;
+
+        VerticalLayout {
+            height: 110px;
+            spacing: 5px;
+            alignment: center;
+
+            Image {
+                source: @image-url("../../../src/assets/brand/gamefic.png");
+                width: 58px;
+                height: 58px;
+                image-fit: contain;
+            }
+
+            Text {
+                text: "Gamefic";
+                color: Theme.text-primary;
+                font-size: 20px;
+                font-weight: 700;
+                horizontal-alignment: center;
+            }
+
+            Text {
+                text: "GAMING ON LINUX";
+                color: Theme.text-muted;
+                font-size: 9px;
+                letter-spacing: 1.6px;
+                horizontal-alignment: center;
+            }
+        }
+
+        Rectangle {
+            height: 1px;
+            background: Theme.divider;
+        }
+
+        NavigationItem {
+            label: "Início";
+            glyph: "⌂";
+            selected: root.selected-page == "Início";
+            activated => { root.navigate("Início"); }
+        }
+        NavigationItem {
+            label: "Apps";
+            glyph: "▦";
+            selected: root.selected-page == "Apps";
+            activated => { root.navigate("Apps"); }
+        }
+        NavigationItem {
+            label: "Criação de Conteúdo";
+            glyph: "▷";
+            selected: root.selected-page == "Criação de Conteúdo";
+            activated => { root.navigate("Criação de Conteúdo"); }
+        }
+        NavigationItem {
+            label: "Desempenho";
+            glyph: "▥";
+            selected: root.selected-page == "Desempenho";
+            activated => { root.navigate("Desempenho"); }
+        }
+        NavigationItem {
+            label: "Kernels e Drivers";
+            glyph: "✥";
+            selected: root.selected-page == "Kernels e Drivers";
+            activated => { root.navigate("Kernels e Drivers"); }
+        }
+        NavigationItem {
+            label: "Otimização";
+            glyph: "◇";
+            selected: root.selected-page == "Otimização";
+            activated => { root.navigate("Otimização"); }
+        }
+        NavigationItem {
+            label: "Overlay";
+            glyph: "▣";
+            selected: root.selected-page == "Overlay";
+            activated => { root.navigate("Overlay"); }
+        }
+        NavigationItem {
+            label: "Histórico e Diagnósticos";
+            glyph: "◉";
+            selected: root.selected-page == "Histórico e Diagnósticos";
+            activated => { root.navigate("Histórico e Diagnósticos"); }
+        }
+        NavigationItem {
+            label: "Configurações";
+            glyph: "⚙";
+            selected: root.selected-page == "Configurações";
+            activated => { root.navigate("Configurações"); }
+        }
+
+        Rectangle {
+            vertical-stretch: 1;
+            background: transparent;
+        }
+
+        Rectangle {
+            height: 54px;
+            border-radius: 13px;
+            border-width: 1px;
+            border-color: Theme.card-border;
+            background: Theme.card-bg;
+
+            VerticalLayout {
+                padding-left: 12px;
+                padding-right: 12px;
+                alignment: center;
+                spacing: 2px;
+
+                Text {
+                    text: "Gamefic";
+                    color: Theme.text-primary;
+                    font-size: 13px;
+                    font-weight: 700;
+                }
+                Text {
+                    text: "Versão nativa · Slint";
+                    color: Theme.text-muted;
+                    font-size: 10px;
+                }
+            }
+        }
+    }
+}

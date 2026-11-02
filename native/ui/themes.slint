@@ -1,0 +1,33 @@
+// Shared visual tokens. New applications can reuse this palette and components.
+export global Theme {
+    in-out property <bool> dark: true;
+
+    out property <color> window-bg: dark ? #06152e : #f5f8fd;
+    out property <color> titlebar-bg: dark ? #071a36 : #ffffff;
+    out property <color> sidebar-bg: dark ? #071a35 : #f0f6fd;
+    out property <color> toolbar-bg: dark ? #081b37 : #ffffff;
+    out property <color> content-bg: dark ? #06152e : #f7faff;
+
+    out property <color> card-bg: dark ? #0a2346 : #ffffff;
+    out property <color> card-bg-alt: dark ? #0d2b54 : #eaf3fc;
+    out property <color> card-border: dark ? #164b7c : #c8def3;
+    out property <color> card-shadow: dark ? #00142d88 : #7aa7d522;
+
+    out property <color> text-primary: dark ? #f2f7ff : #102c52;
+    out property <color> text-secondary: dark ? #b2c8e3 : #4c678b;
+    out property <color> text-muted: dark ? #829fbe : #7189a8;
+
+    out property <color> accent: dark ? #16d4f2 : #087fda;
+    out property <color> accent-strong: dark ? #00bce8 : #0875cb;
+    out property <color> accent-soft: dark ? #0a3b63 : #dcefff;
+    out property <color> accent-border: dark ? #18c9ed : #2998e8;
+
+    out property <color> success: dark ? #08bd70 : #07985b;
+    out property <color> info: dark ? #087fe0 : #087fe0;
+    out property <color> warning: dark ? #d68b24 : #a96808;
+
+    out property <color> divider: dark ? #123b65 : #dce8f5;
+    out property <color> icon-tile: dark ? #103d6a : #dceeff;
+    out property <color> control-hover: dark ? #123d69 : #e4f1ff;
+    out property <color> control-bg: dark ? #0c2a50 : #f1f7ff;
+}
