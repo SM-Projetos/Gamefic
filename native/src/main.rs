@@ -246,7 +246,7 @@ fn apply_metric_sample(ui: &GameficWindow, sample: monitor::MetricSample) {
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Set a stable desktop identity before the window is created (Wayland/X11).
-    slint::set_xdg_app_id("com.sergio.gamefic");
+    slint::set_xdg_app_id("com.sergio.gamefic")?;
 
     let ui = GameficWindow::new()?;
 
@@ -414,7 +414,17 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     });
 
-    // Monitoramento contínuo: coleta real em thread dedicada e atualização da UI pela event loop Slint.\n    let monitor_controller = monitor::MonitorController::new();\n    let monitor_for_interval = monitor_controller.clone();\n    ui.on_monitor_interval_changed(move |interval_ms| {\n        monitor_for_interval.set_interval(interval_ms.max(500) as u64);\n    });\n    let monitor_ui = ui.as_weak();\n    monitor_controller.start(move |sample| {\n        let _ = monitor_ui.upgrade_in_event_loop(move |ui| apply_metric_sample(&ui, sample));\n    })?;\n\n    // A detecção geral também permanece fora da UI thread.
+    // Monitoramento contínuo: coleta real em thread dedicada e atualização da UI pela event loop Slint.
+    let monitor_controller = monitor::MonitorController::new();
+    let monitor_for_interval = monitor_controller.clone();
+    ui.on_monitor_interval_changed(move |interval_ms| {
+        monitor_for_interval.set_interval(interval_ms.max(500) as u64);
+    });
+    let monitor_ui = ui.as_weak();
+    monitor_controller.start(move |sample| {
+        let _ = monitor_ui.upgrade_in_event_loop(move |ui| apply_metric_sample(&ui, sample));
+    })?;
+
     let ui_weak = ui.as_weak();
     std::thread::Builder::new()
         .name("gamefic-system-detection".to_string())

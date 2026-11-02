@@ -1216,7 +1216,7 @@ fn releases_tag(repositorio: &str) -> Result<Vec<String>, InstalarError> {
         Ok(texto) => {
             let json: Vec<serde_json::Value> =
                 serde_json::from_str(&texto).map_err(|e| InstalarError::Execucao(e.to_string()))?;
-            let mut tags: Vec<String> = json
+            let tags: Vec<String> = json
                 .iter()
                 .filter_map(|r| r["tag_name"].as_str().map(|s| s.to_string()))
                 .collect();
@@ -1475,7 +1475,7 @@ fn hash_esperado_para(f: &ForkProton, tag: &str) -> Option<String> {
 }
 
 /// digest (sha512) de um release no Forgejo (Gitea) pela tag
-fn forgejo_digest(f: &ForkProton, tag: &str) -> Result<Option<String>, InstalarError> {
+fn forgejo_digest(f: &ForkProton, _tag: &str) -> Result<Option<String>, InstalarError> {
     let json = http_texto(&f.repositorio, 4_000_000)?;
     let valor: serde_json::Value = serde_json::from_str(&json).map_err(|e| InstalarError::Execucao(e.to_string()))?;
     if let Some(digest) = valor["digest"].as_str() {
