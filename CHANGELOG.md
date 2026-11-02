@@ -5,6 +5,7 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/), 
 ## [Não lançado]
 
 ### Corrigido
+- Inicialização da plataforma Slint: seleção explícita do backend Winit via `slint::BackendSelector` antes da criação da janela. A seleção do renderer continua respeitando `SLINT_BACKEND` (por exemplo, `winit-software`), sem adicionar dependência interna do backend nem alterar as features do crate.
 - Inicialização do Monitor do Sistema na interface Slint: corrigido o bloco que estava comentado por conter escapes literais de quebra de linha; a coleta agora é iniciada e os callbacks de intervalo são registrados. O identificador XDG agora propaga falhas de configuração, e dois avisos triviais no backend reutilizado foram eliminados.
 
 ### Adicionado
