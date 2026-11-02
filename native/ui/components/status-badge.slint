@@ -3,19 +3,26 @@ import { Theme } from "../themes.slint";
 export component StatusBadge inherits Rectangle {
     in property <string> state: "desconhecido";
 
-    width: root.state == "instalado" ? 112px
-        : root.state == "nao_instalado" ? 142px : 124px;
-    height: 27px;
-    border-radius: 14px;
-    background: root.state == "instalado" ? Theme.success
-        : root.state == "nao_instalado" ? Theme.info : Theme.warning;
+    width: root.state == "instalado" ? 100px
+        : root.state == "nao_instalado" ? 124px : 112px;
+    height: 24px;
+    border-radius: 12px;
+    border-width: 1px;
+    border-color: root.state == "instalado" ? Theme.success
+        : root.state == "nao_instalado" ? Theme.warning : Theme.card-border;
+    background: root.state == "instalado"
+        ? (Theme.dark ? #123d30 : #d1fae5)
+        : root.state == "nao_instalado"
+            ? (Theme.dark ? #493018 : #ffedd5)
+            : Theme.control-bg;
 
     Text {
         text: root.state == "instalado" ? "✓  Instalado"
             : root.state == "nao_instalado" ? "↓  Não instalado"
             : "◌  Verificando";
-        color: #ffffff;
-        font-size: 11px;
+        color: root.state == "instalado" ? Theme.success
+            : root.state == "nao_instalado" ? Theme.warning : Theme.text-muted;
+        font-size: 10px;
         font-weight: 700;
         horizontal-alignment: center;
         vertical-alignment: center;
