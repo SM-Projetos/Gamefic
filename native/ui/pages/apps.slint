@@ -4,6 +4,55 @@ import { ScrollView } from "std-widgets.slint";
 import { AppCard } from "../components/app-card.slint";
 import { SectionHeader } from "../components/section-header.slint";
 
+component AppCategory inherits Rectangle {
+    in property <string> title;
+    in property <[AppCardData]> apps;
+    in property <bool> catalog-loaded: false;
+    callback app-selected(string);
+
+    height: 380px;
+    background: transparent;
+
+    VerticalLayout {
+        spacing: 12px;
+        SectionHeader { title: root.title; }
+
+        if root.apps.length > 0 : FlexboxLayout {
+            width: 100%;
+            height: 340px;
+            flex-direction: row;
+            flex-wrap: wrap;
+            spacing: 12px;
+            cross-axis-alignment: start;
+
+            for app in root.apps : AppCard {
+                app-id: app.id;
+                app-name: app.name;
+                description: app.description;
+                state: app.state;
+                glyph: app.glyph;
+                raster-icon: app.raster_icon;
+                featured: app.id == "steam";
+                activated(id) => { root.app-selected(id); }
+            }
+        } else : Rectangle {
+            height: 72px;
+            border-radius: 10px;
+            border-width: 1px;
+            border-color: Theme.card-border;
+            background: Theme.card-bg;
+
+            Text {
+                text: root.catalog-loaded ? "Nenhum aplicativo nesta categoria." : "Consultando catálogo do sistema…";
+                color: Theme.text-muted;
+                font-size: 12px;
+                vertical-alignment: center;
+                horizontal-alignment: center;
+            }
+        }
+    }
+}
+
 export component AppsPage inherits Rectangle {
     in property <[AppCardData]> launchers;
     in property <[AppCardData]> emulators;
@@ -18,154 +67,56 @@ export component AppsPage inherits Rectangle {
         width: 100%;
         height: 100%;
         content-width: self.width;
-        content-height: 1260px;
+        content-height: 1580px;
 
         VerticalLayout {
-            padding-left: 26px;
-            padding-right: 26px;
-            padding-top: 23px;
-            padding-bottom: 34px;
-            spacing: 21px;
+            padding-left: 28px;
+            padding-right: 28px;
+            padding-top: 24px;
+            padding-bottom: 32px;
+            spacing: 20px;
 
             VerticalLayout {
-                spacing: 5px;
+                spacing: 6px;
 
                 Text {
                     text: "Apps";
                     color: Theme.text-primary;
                     font-size: 28px;
-                    font-weight: 800;
+                    font-weight: 750;
                 }
 
                 Text {
-                    text: "Descubra e gerencie aplicativos e ferramentas para uma experiência ainda melhor no Linux.";
+                    text: "Gerencie e instale aplicativos essenciais para jogos no Linux, incluindo launchers, emuladores e ferramentas para aprimorar sua experiência gamer.";
                     color: Theme.text-secondary;
                     font-size: 12px;
                     wrap: word-wrap;
                 }
-
-                if !root.catalog-loaded : Text {
-                    text: "Carregando catálogo do sistema…";
-                    color: Theme.text-muted;
-                    font-size: 10px;
-                }
             }
 
-            VerticalLayout {
-                spacing: 11px;
-                SectionHeader { title: "Launchers"; }
-
-                ScrollView {
-                    width: 100%;
-                    height: 182px;
-                    content-width: 1500px;
-                    content-height: 182px;
-                    mouse-drag-pan-enabled: true;
-
-                    HorizontalLayout {
-                        spacing: 14px;
-                        padding-top: 3px;
-                        padding-bottom: 8px;
-
-                        for app in root.launchers : AppCard {
-                            app-id: app.id;
-                            app-name: app.name;
-                            description: app.description;
-                            state: app.state;
-                            glyph: app.glyph;
-                            raster-icon: app.raster_icon;
-                            featured: app.id == "steam";
-                            activated(id) => { root.app-selected(id); }
-                        }
-                    }
-                }
+            AppCategory {
+                title: "Launchers";
+                apps: root.launchers;
+                catalog-loaded: root.catalog-loaded;
+                app-selected(id) => { root.app-selected(id); }
             }
-
-            VerticalLayout {
-                spacing: 11px;
-                SectionHeader { title: "Emuladores"; }
-
-                ScrollView {
-                    width: 100%;
-                    height: 182px;
-                    content-width: 1500px;
-                    content-height: 182px;
-                    mouse-drag-pan-enabled: true;
-
-                    HorizontalLayout {
-                        spacing: 14px;
-                        padding-top: 3px;
-                        padding-bottom: 8px;
-
-                        for app in root.emulators : AppCard {
-                            app-id: app.id;
-                            app-name: app.name;
-                            description: app.description;
-                            state: app.state;
-                            glyph: app.glyph;
-                            raster-icon: app.raster_icon;
-                            activated(id) => { root.app-selected(id); }
-                        }
-                    }
-                }
+            AppCategory {
+                title: "Emuladores";
+                apps: root.emulators;
+                catalog-loaded: root.catalog-loaded;
+                app-selected(id) => { root.app-selected(id); }
             }
-
-            VerticalLayout {
-                spacing: 11px;
-                SectionHeader { title: "Ferramentas de jogos"; }
-
-                ScrollView {
-                    width: 100%;
-                    height: 182px;
-                    content-width: 1500px;
-                    content-height: 182px;
-                    mouse-drag-pan-enabled: true;
-
-                    HorizontalLayout {
-                        spacing: 14px;
-                        padding-top: 3px;
-                        padding-bottom: 8px;
-
-                        for app in root.game-tools : AppCard {
-                            app-id: app.id;
-                            app-name: app.name;
-                            description: app.description;
-                            state: app.state;
-                            glyph: app.glyph;
-                            raster-icon: app.raster_icon;
-                            activated(id) => { root.app-selected(id); }
-                        }
-                    }
-                }
+            AppCategory {
+                title: "Ferramentas de jogos";
+                apps: root.game-tools;
+                catalog-loaded: root.catalog-loaded;
+                app-selected(id) => { root.app-selected(id); }
             }
-
-            VerticalLayout {
-                spacing: 11px;
-                SectionHeader { title: "Compatibilidade"; }
-
-                ScrollView {
-                    width: 100%;
-                    height: 182px;
-                    content-width: 1500px;
-                    content-height: 182px;
-                    mouse-drag-pan-enabled: true;
-
-                    HorizontalLayout {
-                        spacing: 14px;
-                        padding-top: 3px;
-                        padding-bottom: 8px;
-
-                        for app in root.compatibility : AppCard {
-                            app-id: app.id;
-                            app-name: app.name;
-                            description: app.description;
-                            state: app.state;
-                            glyph: app.glyph;
-                            raster-icon: app.raster_icon;
-                            activated(id) => { root.app-selected(id); }
-                        }
-                    }
-                }
+            AppCategory {
+                title: "Compatibilidade";
+                apps: root.compatibility;
+                catalog-loaded: root.catalog-loaded;
+                app-selected(id) => { root.app-selected(id); }
             }
         }
     }
