@@ -26,7 +26,7 @@ fn glyph_for(id: &str, name: &str) -> String {
         "gamemode" => "GM".to_string(),
         "protontricks" => "PT".to_string(),
         "wine" => "W".to_string(),
-        _ => name.chars().next().unwrap_or('?').to_uppercase().to_string(),
+        _ => name.chars().next().map(|ch| ch.to_uppercase().collect::<String>()).unwrap_or_else(|| "?".to_string()),
     }
 }
 
