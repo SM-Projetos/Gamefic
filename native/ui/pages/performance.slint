@@ -5,24 +5,53 @@ component IntervalOption inherits Rectangle {
     in property <bool> selected;
     callback activated();
 
-    width: 58px;
+    width: 54px;
     height: 30px;
-    border-radius: 9px;
-    border-width: root.selected ? 1px : 0px;
-    border-color: root.selected ? Theme.accent-border : transparent;
+    border-radius: 8px;
+    border-width: 1px;
+    border-color: root.selected ? Theme.accent : Theme.card-border;
     background: root.selected ? Theme.accent-soft : Theme.control-bg;
 
     Text {
         text: root.label;
-        color: root.selected ? Theme.accent : Theme.text-secondary;
+        color: root.selected ? Theme.accent-strong : Theme.text-secondary;
         font-size: 11px;
         font-weight: 700;
         horizontal-alignment: center;
         vertical-alignment: center;
     }
+    option-touch := TouchArea { clicked => { root.activated(); } }
+}
 
-    option-touch := TouchArea {
-        clicked => { root.activated(); }
+component MetricChart inherits Rectangle {
+    in property <string> path-data;
+    in property <color> line-color: Theme.accent;
+    height: 64px;
+    background: transparent;
+
+    Rectangle {
+        y: 16px;
+        width: 100%;
+        height: 1px;
+        background: Theme.divider;
+    }
+    Rectangle {
+        y: 40px;
+        width: 100%;
+        height: 1px;
+        background: Theme.divider;
+    }
+    Path {
+        commands: root.path-data;
+        width: 100%;
+        height: 100%;
+        viewbox-width: 100;
+        viewbox-height: 100;
+        stroke: root.line-color;
+        stroke-width: 2.5px;
+        stroke-line-cap: round;
+        stroke-line-join: round;
+        fill: transparent;
     }
 }
 
@@ -31,84 +60,110 @@ component MetricCard inherits Rectangle {
     in property <string> value;
     in property <string> detail-a;
     in property <string> detail-b;
-    in property <int> percent: 0;
-    in property <color> bar-color: Theme.accent;
-    in property <bool> show-meter: true;
-    in property <[int]> history: [];
+    in property <string> history-path;
+    in property <color> line-color: Theme.accent;
 
-    height: 218px;
-    border-radius: 17px;
+    height: 224px;
+    border-radius: 14px;
     border-width: 1px;
     border-color: Theme.card-border;
     background: Theme.card-bg;
     drop-shadow-color: Theme.card-shadow;
-    drop-shadow-blur: 8px;
-    drop-shadow-offset-y: 3px;
+    drop-shadow-blur: 5px;
+    drop-shadow-offset-y: 2px;
 
     VerticalLayout {
-        padding: 17px;
-        spacing: 10px;
+        padding: 15px;
+        spacing: 9px;
 
-        Text {
-            text: root.title;
-            color: Theme.text-secondary;
-            font-size: 12px;
-            font-weight: 700;
+        HorizontalLayout {
+            Text {
+                text: root.title;
+                color: Theme.text-secondary;
+                font-size: 12px;
+                font-weight: 700;
+                vertical-alignment: center;
+            }
+            Rectangle { horizontal-stretch: 1; background: transparent; }
+            Rectangle {
+                width: 7px;
+                height: 7px;
+                border-radius: 4px;
+                background: root.line-color;
+                vertical-alignment: center;
+            }
         }
 
         Text {
             text: root.value;
             color: Theme.text-primary;
-            font-size: 29px;
-            font-weight: 800;
+            font-size: 27px;
+            font-weight: 750;
             vertical-alignment: center;
         }
 
         Text {
             text: root.detail-a;
             color: Theme.text-secondary;
-            font-size: 11px;
+            font-size: 10px;
             wrap: word-wrap;
+            max-lines: 2;
+        }
+        Text {
+            text: root.detail-b;
+            color: Theme.text-muted;
+            font-size: 10px;
+            wrap: word-wrap;
+            max-lines: 2;
         }
 
+        Rectangle { vertical-stretch: 1; background: transparent; }
+        MetricChart {
+            path-data: root.history-path;
+            line-color: root.line-color;
+        }
+    }
+}
+
+component MemoryColumn inherits Rectangle {
+    in property <string> title;
+    in property <string> value;
+    in property <string> detail-a;
+    in property <string> detail-b;
+    in property <string> history-path;
+    in property <color> line-color: Theme.accent;
+
+    VerticalLayout {
+        padding: 14px;
+        spacing: 8px;
+        Text {
+            text: root.title;
+            color: Theme.text-secondary;
+            font-size: 12px;
+            font-weight: 700;
+        }
+        Text {
+            text: root.value;
+            color: Theme.text-primary;
+            font-size: 25px;
+            font-weight: 750;
+        }
+        Text {
+            text: root.detail-a;
+            color: Theme.text-secondary;
+            font-size: 10px;
+            wrap: word-wrap;
+        }
         Text {
             text: root.detail-b;
             color: Theme.text-muted;
             font-size: 10px;
             wrap: word-wrap;
         }
-
-        Rectangle {
-            vertical-stretch: 1;
-            background: transparent;
-        }
-
-        HorizontalLayout {
-            height: 30px;
-            spacing: 2px;
-            alignment: end;
-
-            for value in root.history : Rectangle {
-                horizontal-stretch: 1;
-                min-width: 1px;
-                height: value > 0 ? value * 0.28px : 1px;
-                border-radius: 1px;
-                background: root.bar-color;
-            }
-        }
-
-        if root.show-meter : Rectangle {
-            height: 7px;
-            border-radius: 4px;
-            background: Theme.control-bg;
-            clip: true;
-
-            Rectangle {
-                width: root.percent * 2.7px;
-                height: 7px;
-                border-radius: 4px;
-                background: root.bar-color;
-            }
+        Rectangle { vertical-stretch: 1; background: transparent; }
+        MetricChart {
+            path-data: root.history-path;
+            line-color: root.line-color;
         }
     }
 }
@@ -117,40 +172,32 @@ export component PerformancePage inherits Rectangle {
     in property <string> cpu-value: "—";
     in property <string> cpu-detail-a: "Aguardando primeira amostra";
     in property <string> cpu-detail-b: "Frequência média indisponível";
-    in property <int> cpu-percent: 0;
-    in property <[int]> cpu-history: [];
+    in property <string> cpu-history-path: "";
 
     in property <string> network-value: "Aguardando dados";
     in property <string> network-detail-a: "Download: —";
     in property <string> network-detail-b: "Upload: —";
-    in property <[int]> network-history: [];
-    in property <string> network-link: "Conexão não identificada";
+    in property <string> network-history-path: "";
 
     in property <string> gpu-value: "Não disponível";
     in property <string> gpu-detail-a: "Métricas dependem do driver";
     in property <string> gpu-detail-b: "Temperatura: —";
-    in property <int> gpu-percent: 0;
-    in property <[int]> gpu-history: [];
-    in property <bool> gpu-available: false;
+    in property <string> gpu-history-path: "";
 
     in property <string> vram-value: "Não disponível";
     in property <string> vram-detail-a: "Memória de vídeo indisponível";
     in property <string> vram-detail-b: "Uso: —";
-    in property <int> vram-percent: 0;
-    in property <[int]> vram-history: [];
-    in property <bool> vram-available: false;
+    in property <string> vram-history-path: "";
 
     in property <string> ram-value: "—";
     in property <string> ram-detail-a: "Em uso: —";
     in property <string> ram-detail-b: "Disponível: —";
-    in property <int> ram-percent: 0;
-    in property <[int]> ram-history: [];
+    in property <string> ram-history-path: "";
 
     in property <string> swap-value: "—";
     in property <string> swap-detail-a: "Em uso: —";
     in property <string> swap-detail-b: "Disponível: —";
-    in property <int> swap-percent: 0;
-    in property <[int]> swap-history: [];
+    in property <string> swap-history-path: "";
     in property <bool> swap-available: false;
 
     in property <int> interval-ms: 2000;
@@ -159,38 +206,31 @@ export component PerformancePage inherits Rectangle {
     background: Theme.content-bg;
 
     VerticalLayout {
-        padding-left: 26px;
-        padding-right: 26px;
-        padding-top: 23px;
-        padding-bottom: 28px;
-        spacing: 18px;
+        padding-left: 28px;
+        padding-right: 28px;
+        padding-top: 22px;
+        padding-bottom: 24px;
+        spacing: 16px;
 
         HorizontalLayout {
-            height: 58px;
+            height: 52px;
             spacing: 12px;
 
             VerticalLayout {
-                spacing: 4px;
-
+                spacing: 3px;
                 Text {
                     text: "Monitor do Sistema";
                     color: Theme.text-primary;
                     font-size: 27px;
-                    font-weight: 800;
+                    font-weight: 750;
                 }
-
                 Text {
                     text: "Métricas em tempo real do hardware e da rede";
                     color: Theme.text-secondary;
                     font-size: 11px;
                 }
             }
-
-            Rectangle {
-                horizontal-stretch: 1;
-                background: transparent;
-            }
-
+            Rectangle { horizontal-stretch: 1; background: transparent; }
             Text {
                 text: "INTERVALO";
                 color: Theme.text-muted;
@@ -198,7 +238,6 @@ export component PerformancePage inherits Rectangle {
                 font-weight: 700;
                 vertical-alignment: center;
             }
-
             IntervalOption {
                 label: "1 s";
                 selected: root.interval-ms == 1000;
@@ -217,16 +256,15 @@ export component PerformancePage inherits Rectangle {
         }
 
         HorizontalLayout {
-            spacing: 14px;
+            spacing: 12px;
             MetricCard {
                 horizontal-stretch: 1;
                 title: "CPU";
                 value: root.cpu-value;
                 detail-a: root.cpu-detail-a;
                 detail-b: root.cpu-detail-b;
-                percent: root.cpu-percent;
-                history: root.cpu-history;
-                bar-color: #a78bfa;
+                history-path: root.cpu-history-path;
+                line-color: #a78bfa;
             }
             MetricCard {
                 horizontal-stretch: 1;
@@ -234,8 +272,8 @@ export component PerformancePage inherits Rectangle {
                 value: root.network-value;
                 detail-a: root.network-detail-a;
                 detail-b: root.network-detail-b;
-                history: root.network-history;
-                show-meter: false;
+                history-path: root.network-history-path;
+                line-color: #22d3ee;
             }
             MetricCard {
                 horizontal-stretch: 1;
@@ -243,52 +281,91 @@ export component PerformancePage inherits Rectangle {
                 value: root.gpu-value;
                 detail-a: root.gpu-detail-a;
                 detail-b: root.gpu-detail-b;
-                percent: root.gpu-percent;
-                history: root.gpu-history;
-                bar-color: #22d3ee;
-                show-meter: root.gpu-available;
+                history-path: root.gpu-history-path;
+                line-color: #22d3ee;
             }
-        }
-
-        HorizontalLayout {
-            spacing: 14px;
             MetricCard {
                 horizontal-stretch: 1;
                 title: "VRAM";
                 value: root.vram-value;
                 detail-a: root.vram-detail-a;
                 detail-b: root.vram-detail-b;
-                percent: root.vram-percent;
-                history: root.vram-history;
-                bar-color: #a78bfa;
-                show-meter: root.vram-available;
-            }
-            MetricCard {
-                horizontal-stretch: 1;
-                title: "MEMÓRIA RAM";
-                value: root.ram-value;
-                detail-a: root.ram-detail-a;
-                detail-b: root.ram-detail-b;
-                percent: root.ram-percent;
-                history: root.ram-history;
-                bar-color: #a78bfa;
-            }
-            MetricCard {
-                horizontal-stretch: 1;
-                title: "SWAP";
-                value: root.swap-value;
-                detail-a: root.swap-detail-a;
-                detail-b: root.swap-detail-b;
-                percent: root.swap-percent;
-                history: root.swap-history;
-                bar-color: #22d3ee;
-                show-meter: root.swap-available;
+                history-path: root.vram-history-path;
+                line-color: #a78bfa;
             }
         }
 
-        Rectangle {
-            vertical-stretch: 1;
-            background: transparent;
+        HorizontalLayout {
+            spacing: 12px;
+
+            Rectangle {
+                horizontal-stretch: 3;
+                height: 232px;
+                border-radius: 14px;
+                border-width: 1px;
+                border-color: Theme.card-border;
+                background: Theme.card-bg;
+
+                HorizontalLayout {
+                    MemoryColumn {
+                        horizontal-stretch: 1;
+                        title: "MEMÓRIA RAM";
+                        value: root.ram-value;
+                        detail-a: root.ram-detail-a;
+                        detail-b: root.ram-detail-b;
+                        history-path: root.ram-history-path;
+                        line-color: #a78bfa;
+                    }
+                    Rectangle {
+                        width: 1px;
+                        height: 190px;
+                        background: Theme.divider;
+                        vertical-alignment: center;
+                    }
+                    MemoryColumn {
+                        horizontal-stretch: 1;
+                        title: "SWAP";
+                        value: root.swap-value;
+                        detail-a: root.swap-detail-a;
+                        detail-b: root.swap-detail-b;
+                        history-path: root.swap-history-path;
+                        line-color: #22d3ee;
+                    }
+                }
+            }
+
+            Rectangle {
+                horizontal-stretch: 2;
+                height: 232px;
+                border-radius: 14px;
+                border-width: 1px;
+                border-color: Theme.card-border;
+                background: Theme.card-bg;
+
+                VerticalLayout {
+                    padding: 18px;
+                    spacing: 10px;
+                    Text {
+                        text: "ARMAZENAMENTO";
+                        color: Theme.text-secondary;
+                        font-size: 12px;
+                        font-weight: 700;
+                    }
+                    Rectangle { vertical-stretch: 1; background: transparent; }
+                    Text {
+                        text: "Leitura de unidades ainda não integrada ao monitor nativo.";
+                        color: Theme.text-muted;
+                        font-size: 11px;
+                        wrap: word-wrap;
+                    }
+                    Text {
+                        text: "Nenhuma capacidade ou utilização é estimada.";
+                        color: Theme.text-muted;
+                        font-size: 10px;
+                        wrap: word-wrap;
+                    }
+                }
+            }
         }
 
         Text {
