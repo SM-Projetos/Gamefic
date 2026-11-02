@@ -13,6 +13,7 @@ const DEFAULT_INTERVAL_MS: u64 = 2_000;
 #[derive(Debug, Clone, Default)]
 pub struct MetricSample {
     pub cpu_percent: Option<f32>,
+    pub cpu_peak_percent: Option<f32>,
     pub cpu_freq_avg_mhz: Option<u32>,
     pub temp_max_c: Option<f32>,
     pub temp_label: Option<String>,
@@ -74,7 +75,11 @@ impl MonitorController {
                 let mut cpu_peak_percent: Option<f32> = None;
 
                 while running.load(Ordering::SeqCst) {
-                    let sample = collect_sample(&mut net_previous);
+                    let mut sample = collect_sample(&mut net_previous);
+                    if let Some(current) = sample.cpu_percent {
+                        cpu_peak_percent = Some(cpu_peak_percent.map_or(current, |peak| peak.max(current)));
+                    }
+                    sample.cpu_peak_percent = cpu_peak_percent;
                     {
                         let mut samples = history
                             .lock()
