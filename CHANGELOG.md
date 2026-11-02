@@ -4,6 +4,10 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/), 
 
 ## [Não lançado]
 
+### Modificado
+- **Identidade visual da interface Slint alinhada à versão Tauri:** paleta escura/clara, sidebar, barra superior, título da janela, tipografia, estados, cards e cabeçalhos agora seguem os tokens e proporções da interface original. A página Apps usa cards de 268×160 px em grade com quebra automática, substituindo as faixas horizontais com largura fixa.
+- **Monitor do Sistema reorganizado:** quatro painéis (CPU, Rede, GPU e VRAM) na primeira linha; RAM e Swap agrupados na segunda, ao lado do painel de armazenamento. Os históricos passaram de barras para gráficos de linha com escalas normalizadas; o painel de armazenamento informa explicitamente que a leitura ainda não foi integrada, sem apresentar valores fictícios.
+
 ### Corrigido
 - Inicialização da plataforma Slint: seleção explícita do backend Winit via `slint::BackendSelector` antes da criação da janela. A seleção do renderer continua respeitando `SLINT_BACKEND` (por exemplo, `winit-software`), sem adicionar dependência interna do backend nem alterar as features do crate.
 - Inicialização do Monitor do Sistema na interface Slint: corrigido o bloco que estava comentado por conter escapes literais de quebra de linha; a coleta agora é iniciada e os callbacks de intervalo são registrados. O identificador XDG agora propaga falhas de configuração, e dois avisos triviais no backend reutilizado foram eliminados.
