@@ -169,53 +169,51 @@ fn percent_int(value: Option<f32>) -> i32 {
 }
 
 
-fn history_values<F>(history: &[monitor::MetricSample], value: F) -> ModelRc<i32>
+fn history_path<F>(history: &[monitor::MetricSample], value: F) -> SharedString
 where
     F: Fn(&monitor::MetricSample) -> Option<f32>,
 {
     let mut recent = history.iter().rev().take(48).collect::<Vec<_>>();
     recent.reverse();
-    let values = recent
-        .iter()
-        .map(|sample| value(sample).map(|number| number.round().clamp(0.0, 100.0) as i32).unwrap_or(0))
-        .collect::<Vec<_>>();
-    Rc::new(VecModel::from(values)).into()
-}
+    if recent.len() < 2 {
+        return SharedString::default();
+    }
 
-fn network_history_values(history: &[monitor::MetricSample]) -> ModelRc<i32> {
-    let mut recent = history.iter().rev().take(48).collect::<Vec<_>>();
-    recent.reverse();
-    let peak = recent
-        .iter()
-        .map(|sample| sample.net_download_bps.unwrap_or(0.0) + sample.net_upload_bps.unwrap_or(0.0))
-        .fold(0.0_f64, f64::max);
-    let values = recent
-        .iter()
-        .map(|sample| {
-            if peak <= 0.0 {
-                0
-            } else {
-                (((sample.net_download_bps.unwrap_or(0.0) + sample.net_upload_bps.unwrap_or(0.0)) / peak) * 100.0)
-                    .round()
-                    .clamp(0.0, 100.0) as i32
-            }
-        })
-        .collect::<Vec<_>>();
-    Rc::new(VecModel::from(values)).into()
+    let mut commands = String::new();
+    for (index, sample) in recent.iter().enumerate() {
+        let Some(value) = value(sample) else { continue };
+        let x = index as f32 * 100.0 / (recent.len() - 1) as f32;
+        let y = 100.0 - value.clamp(0.0, 100.0);
+        let command = if commands.is_empty() { "M" } else { "L" };
+        commands.push_str(&format!("{command} {x:.2} {y:.2} "));
+    }
+    SharedString::from(commands.trim())
 }
 
 fn apply_metric_history(ui: &GameficWindow, history: &[monitor::MetricSample]) {
-    ui.set_metric_cpu_history(history_values(history, |sample| sample.cpu_percent));
-    ui.set_metric_network_history(network_history_values(history));
-    ui.set_metric_gpu_history(history_values(history, |sample| sample.gpu_utilization_percent));
-    ui.set_metric_vram_history(history_values(history, |sample| {
+    ui.set_metric_cpu_history_path(history_path(history, |sample| sample.cpu_percent));
+
+    let network_peak = history.iter().rev().take(48)
+        .map(|sample| sample.net_download_bps.unwrap_or(0.0) + sample.net_upload_bps.unwrap_or(0.0))
+        .fold(0.0_f64, f64::max);
+    ui.set_metric_network_history_path(history_path(history, |sample| {
+        if network_peak <= 0.0 {
+            None
+        } else {
+            Some((((sample.net_download_bps.unwrap_or(0.0) + sample.net_upload_bps.unwrap_or(0.0))
+                / network_peak) * 100.0) as f32)
+        }
+    }));
+
+    ui.set_metric_gpu_history_path(history_path(history, |sample| sample.gpu_utilization_percent));
+    ui.set_metric_vram_history_path(history_path(history, |sample| {
         match (sample.gpu_mem_used_mb, sample.gpu_mem_total_mb) {
             (Some(used), Some(total)) if total > 0.0 => Some((used / total * 100.0).clamp(0.0, 100.0)),
             _ => None,
         }
     }));
-    ui.set_metric_ram_history(history_values(history, |sample| sample.mem_used_percent));
-    ui.set_metric_swap_history(history_values(history, |sample| sample.swap_used_percent));
+    ui.set_metric_ram_history_path(history_path(history, |sample| sample.mem_used_percent));
+    ui.set_metric_swap_history_path(history_path(history, |sample| sample.swap_used_percent));
 }
 
 fn apply_metric_sample(ui: &GameficWindow, sample: monitor::MetricSample) {
