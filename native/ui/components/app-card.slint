@@ -12,23 +12,23 @@ export component AppCard inherits Rectangle {
     in property <bool> featured: false;
     callback activated(string);
 
-    width: 220px;
-    height: 174px;
-    border-radius: 17px;
+    width: 268px;
+    height: 160px;
+    border-radius: 14px;
     border-width: root.featured ? 2px : 1px;
     border-color: root.featured ? Theme.accent : Theme.card-border;
     background: Theme.card-bg;
-    drop-shadow-color: root.featured ? #00c9ef33 : Theme.card-shadow;
-    drop-shadow-blur: root.featured ? 18px : 9px;
-    drop-shadow-offset-y: 4px;
+    drop-shadow-color: Theme.card-shadow;
+    drop-shadow-blur: 5px;
+    drop-shadow-offset-y: 2px;
 
     VerticalLayout {
         padding: 14px;
         spacing: 9px;
 
         HorizontalLayout {
-            height: 52px;
-            spacing: 11px;
+            height: 54px;
+            spacing: 12px;
 
             AppIcon {
                 app-id: root.app-id;
@@ -39,7 +39,7 @@ export component AppCard inherits Rectangle {
             Text {
                 text: root.app-name;
                 color: Theme.text-primary;
-                font-size: 14px;
+                font-size: 15px;
                 font-weight: 700;
                 wrap: word-wrap;
                 max-lines: 2;
@@ -53,39 +53,24 @@ export component AppCard inherits Rectangle {
             font-size: 11px;
             wrap: word-wrap;
             max-lines: 2;
-            height: 34px;
+            height: 30px;
             vertical-alignment: top;
         }
 
         HorizontalLayout {
-            height: 30px;
+            height: 27px;
             spacing: 8px;
-
-            StatusBadge {
-                state: root.state;
-            }
-
+            StatusBadge { state: root.state; }
             Rectangle {
                 horizontal-stretch: 1;
                 background: transparent;
             }
-
-            Rectangle {
-                width: 31px;
-                height: 31px;
-                border-radius: 16px;
-                border-width: 1px;
-                border-color: Theme.card-border;
-                background: Theme.control-bg;
-
-                Text {
-                    text: "›";
-                    color: Theme.accent;
-                    font-size: 23px;
-                    font-weight: 700;
-                    horizontal-alignment: center;
-                    vertical-alignment: center;
-                }
+            Text {
+                text: "›";
+                color: Theme.accent;
+                font-size: 22px;
+                font-weight: 700;
+                vertical-alignment: center;
             }
         }
     }
