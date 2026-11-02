@@ -59,7 +59,7 @@ export component AppDetailPage inherits Rectangle {
                         vertical-alignment: center;
                     }
 
-                    touch := TouchArea {
+                    back-touch := TouchArea {
                         clicked => { root.back-requested(); }
                     }
                 }
@@ -246,7 +246,7 @@ export component AppDetailPage inherits Rectangle {
                                     horizontal-alignment: center;
                                     vertical-alignment: center;
                                 }
-                                touch := TouchArea {
+                                update-touch := TouchArea {
                                     clicked => {
                                         if (!root.action-busy) {
                                             root.source-action-requested("atualizar", source.id);
@@ -267,7 +267,7 @@ export component AppDetailPage inherits Rectangle {
                                     horizontal-alignment: center;
                                     vertical-alignment: center;
                                 }
-                                touch := TouchArea {
+                                install-touch := TouchArea {
                                     clicked => {
                                         if (!root.action-busy) {
                                             root.source-action-requested("instalar", source.id);
@@ -291,7 +291,7 @@ export component AppDetailPage inherits Rectangle {
                                         horizontal-alignment: center;
                                         vertical-alignment: center;
                                     }
-                                    touch := TouchArea {
+                                    remove-touch := TouchArea {
                                         clicked => {
                                             if (!root.action-busy) {
                                                 if (root.confirm-source == source.id) {
@@ -318,7 +318,7 @@ export component AppDetailPage inherits Rectangle {
                                         horizontal-alignment: center;
                                         vertical-alignment: center;
                                     }
-                                    touch := TouchArea {
+                                    cancel-touch := TouchArea {
                                         clicked => { root.confirm-source = ""; }
                                     }
                                 }
