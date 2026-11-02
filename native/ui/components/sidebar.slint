@@ -1,18 +1,26 @@
 import { Theme } from "../themes.slint";
 
 component NavigationItem inherits Rectangle {
+    in property <string> page-key;
     in property <string> label;
     in property <string> glyph;
     in property <bool> selected;
     callback activated();
 
     height: 40px;
-    border-radius: 13px;
-    background: root.selected
-        ? Theme.accent-soft
+    border-radius: 9px;
+    background: root.selected ? Theme.accent-soft
         : touch.has-hover ? Theme.control-hover : transparent;
-    border-width: root.selected ? 1px : 0px;
-    border-color: root.selected ? Theme.accent-border : transparent;
+
+    Rectangle {
+        visible: root.selected;
+        x: 0;
+        y: 7px;
+        width: 3px;
+        height: 26px;
+        border-radius: 2px;
+        background: Theme.accent;
+    }
 
     HorizontalLayout {
         spacing: 12px;
@@ -21,9 +29,9 @@ component NavigationItem inherits Rectangle {
 
         Text {
             text: root.glyph;
-            width: 24px;
-            color: root.selected ? Theme.accent : Theme.text-secondary;
-            font-size: 19px;
+            width: 22px;
+            color: root.selected ? Theme.accent-strong : Theme.text-secondary;
+            font-size: 17px;
             font-weight: 700;
             horizontal-alignment: center;
             vertical-alignment: center;
@@ -48,7 +56,7 @@ export component Sidebar inherits Rectangle {
     in property <string> selected-page: "Apps";
     callback navigate(string);
 
-    width: 222px;
+    width: 224px;
     background: Theme.sidebar-bg;
 
     Rectangle {
@@ -59,37 +67,26 @@ export component Sidebar inherits Rectangle {
     }
 
     VerticalLayout {
-        padding-left: 16px;
-        padding-right: 16px;
-        padding-top: 16px;
-        padding-bottom: 14px;
-        spacing: 6px;
+        padding: 16px;
+        spacing: 5px;
 
         VerticalLayout {
-            height: 110px;
-            spacing: 5px;
+            height: 126px;
+            spacing: 7px;
             alignment: center;
 
             Image {
                 source: @image-url("../../../src/assets/brand/gamefic.png");
-                width: 58px;
-                height: 58px;
+                width: 72px;
+                height: 72px;
                 image-fit: contain;
             }
 
             Text {
                 text: "Gamefic";
                 color: Theme.text-primary;
-                font-size: 20px;
+                font-size: 22px;
                 font-weight: 700;
-                horizontal-alignment: center;
-            }
-
-            Text {
-                text: "GAMING ON LINUX";
-                color: Theme.text-muted;
-                font-size: 9px;
-                letter-spacing: 1.6px;
                 horizontal-alignment: center;
             }
         }
@@ -100,58 +97,53 @@ export component Sidebar inherits Rectangle {
         }
 
         NavigationItem {
-            label: "Início";
-            glyph: "⌂";
-            selected: root.selected-page == "Início";
-            activated => { root.navigate("Início"); }
-        }
-        NavigationItem {
+            page-key: "Apps";
             label: "Apps";
             glyph: "▦";
-            selected: root.selected-page == "Apps";
-            activated => { root.navigate("Apps"); }
+            selected: root.selected-page == page-key;
+            activated => { root.navigate(page-key); }
         }
         NavigationItem {
+            page-key: "Criação de Conteúdo";
             label: "Criação de Conteúdo";
             glyph: "▷";
-            selected: root.selected-page == "Criação de Conteúdo";
-            activated => { root.navigate("Criação de Conteúdo"); }
+            selected: root.selected-page == page-key;
+            activated => { root.navigate(page-key); }
         }
         NavigationItem {
-            label: "Desempenho";
-            glyph: "▥";
-            selected: root.selected-page == "Desempenho";
-            activated => { root.navigate("Desempenho"); }
+            page-key: "Desempenho";
+            label: "Monitor do Sistema";
+            glyph: "⌁";
+            selected: root.selected-page == page-key;
+            activated => { root.navigate(page-key); }
         }
         NavigationItem {
+            page-key: "Kernels e Drivers";
             label: "Kernels e Drivers";
-            glyph: "✥";
-            selected: root.selected-page == "Kernels e Drivers";
-            activated => { root.navigate("Kernels e Drivers"); }
+            glyph: "▦";
+            selected: root.selected-page == page-key;
+            activated => { root.navigate(page-key); }
         }
         NavigationItem {
+            page-key: "Otimização";
             label: "Otimização";
-            glyph: "◇";
-            selected: root.selected-page == "Otimização";
-            activated => { root.navigate("Otimização"); }
+            glyph: "⚙";
+            selected: root.selected-page == page-key;
+            activated => { root.navigate(page-key); }
         }
         NavigationItem {
+            page-key: "Overlay";
             label: "Overlay";
             glyph: "▣";
-            selected: root.selected-page == "Overlay";
-            activated => { root.navigate("Overlay"); }
+            selected: root.selected-page == page-key;
+            activated => { root.navigate(page-key); }
         }
         NavigationItem {
+            page-key: "Histórico e Diagnósticos";
             label: "Histórico e Diagnósticos";
-            glyph: "◉";
-            selected: root.selected-page == "Histórico e Diagnósticos";
-            activated => { root.navigate("Histórico e Diagnósticos"); }
-        }
-        NavigationItem {
-            label: "Configurações";
-            glyph: "⚙";
-            selected: root.selected-page == "Configurações";
-            activated => { root.navigate("Configurações"); }
+            glyph: "◷";
+            selected: root.selected-page == page-key;
+            activated => { root.navigate(page-key); }
         }
 
         Rectangle {
@@ -161,7 +153,7 @@ export component Sidebar inherits Rectangle {
 
         Rectangle {
             height: 54px;
-            border-radius: 13px;
+            border-radius: 10px;
             border-width: 1px;
             border-color: Theme.card-border;
             background: Theme.card-bg;
@@ -170,12 +162,12 @@ export component Sidebar inherits Rectangle {
                 padding-left: 12px;
                 padding-right: 12px;
                 alignment: center;
-                spacing: 2px;
+                spacing: 3px;
 
                 Text {
                     text: "Gamefic";
                     color: Theme.text-primary;
-                    font-size: 13px;
+                    font-size: 12px;
                     font-weight: 700;
                 }
                 Text {
