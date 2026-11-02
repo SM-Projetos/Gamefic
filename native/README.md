@@ -24,3 +24,4 @@ Requisitos:
 - Reuso direto dos módulos sem dependência de Tauri em `../src-tauri/src/system/`.
 
 As demais telas, ações de instalação, monitoramento, histórico, MangoHud, preferências e empacotamento nativo serão migrados em etapas posteriores. O app Tauri antigo permanece preservado e continua sendo o caminho de execução legado enquanto a paridade não for alcançada.
+- Gerenciamento de aplicativos na tela de detalhes: instalar, atualizar, remover (com confirmação) e abrir, usando as APIs existentes do backend em tarefas de fundo.

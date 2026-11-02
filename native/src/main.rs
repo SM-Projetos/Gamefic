@@ -105,6 +105,7 @@ fn source_cards(entries: &[system::install::FonteInfo]) -> ModelRc<AppSourceData
     let sources = entries
         .iter()
         .map(|entry| AppSourceData {
+            id: SharedString::from(entry.fonte.as_str()),
             name: SharedString::from(source_label(&entry.fonte)),
             available: entry.disponivel,
             installed: entry.instalado,
@@ -119,6 +120,7 @@ fn source_cards(entries: &[system::install::FonteInfo]) -> ModelRc<AppSourceData
 
 fn apply_detail(ui: &GameficWindow, detail: system::install::AppDetail) {
     ui.set_detail_name(SharedString::from(detail.nome));
+    ui.set_detail_gui(detail.gui);
     ui.set_detail_vendor(SharedString::from(detail.fornecedor));
     ui.set_detail_license(SharedString::from(detail.licenca));
     ui.set_detail_summary(SharedString::from(detail.desc_curta));
@@ -203,6 +205,114 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let generation_on_close = Arc::clone(&detail_generation);
     ui.on_app_detail_closed(move || {
         generation_on_close.fetch_add(1, Ordering::SeqCst);
+    });
+
+    // Instalação, atualização e remoção usam exclusivamente a API validada
+    // do backend. O processo roda fora da UI thread e os detalhes são relidos.
+    let action_generation = Arc::new(AtomicU64::new(0));
+    let action_generation_cb = Arc::clone(&action_generation);
+    let action_ui = ui.as_weak();
+    ui.on_source_action_requested(move |action, source| {
+        let request = action_generation_cb.fetch_add(1, Ordering::SeqCst) + 1;
+        let generation = Arc::clone(&action_generation_cb);
+        let weak = action_ui.clone();
+        let id = ui.get_selected_app_id().to_string();
+        let action = action.to_string();
+        let source = source.to_string();
+
+        let _ = weak.upgrade_in_event_loop(|ui| {
+            ui.set_action_busy(true);
+            ui.set_action_error(false);
+            ui.set_action_message(SharedString::from("Executando operação…"));
+        });
+
+        let worker = std::thread::Builder::new()
+            .name("gamefic-app-action".to_string())
+            .spawn(move || {
+                let result = system::install::acao_app(&id, &action, &source);
+                let refreshed = system::install::detail(&id);
+                let _ = weak.upgrade_in_event_loop(move |ui| {
+                    if generation.load(Ordering::SeqCst) != request {
+                        return;
+                    }
+                    if let Some(detail) = refreshed {
+                        apply_detail(&ui, detail);
+                    }
+                    ui.set_action_busy(false);
+                    match result {
+                        Ok(message) => {
+                            ui.set_action_error(false);
+                            ui.set_action_message(SharedString::from(message));
+                        }
+                        Err(error) => {
+                            ui.set_action_error(true);
+                            ui.set_action_message(SharedString::from(error.to_string()));
+                        }
+                    }
+                });
+            });
+
+        if worker.is_err() {
+            let generation = Arc::clone(&action_generation_cb);
+            let _ = action_ui.upgrade_in_event_loop(move |ui| {
+                if generation.load(Ordering::SeqCst) == request {
+                    ui.set_action_busy(false);
+                    ui.set_action_error(true);
+                    ui.set_action_message(SharedString::from(
+                        "Não foi possível iniciar a operação em segundo plano.",
+                    ));
+                }
+            });
+        }
+    });
+
+    // Abertura também é delegada ao backend; ele valida GUI, instalação e
+    // origem (Flatpak/nativa), sem montar comandos no frontend.
+    let open_generation = Arc::clone(&action_generation);
+    let open_ui = ui.as_weak();
+    ui.on_app_open_requested(move || {
+        let request = open_generation.fetch_add(1, Ordering::SeqCst) + 1;
+        let generation = Arc::clone(&open_generation);
+        let weak = open_ui.clone();
+        let id = ui.get_selected_app_id().to_string();
+        let _ = weak.upgrade_in_event_loop(|ui| {
+            ui.set_action_busy(true);
+            ui.set_action_error(false);
+            ui.set_action_message(SharedString::from("Abrindo aplicativo…"));
+        });
+        let worker = std::thread::Builder::new()
+            .name("gamefic-app-open".to_string())
+            .spawn(move || {
+                let result = system::install::abrir_launcher(&id, false);
+                let _ = weak.upgrade_in_event_loop(move |ui| {
+                    if generation.load(Ordering::SeqCst) != request {
+                        return;
+                    }
+                    ui.set_action_busy(false);
+                    match result {
+                        Ok(message) => {
+                            ui.set_action_error(false);
+                            ui.set_action_message(SharedString::from(message));
+                        }
+                        Err(error) => {
+                            ui.set_action_error(true);
+                            ui.set_action_message(SharedString::from(error));
+                        }
+                    }
+                });
+            });
+        if worker.is_err() {
+            let generation = Arc::clone(&open_generation);
+            let _ = open_ui.upgrade_in_event_loop(move |ui| {
+                if generation.load(Ordering::SeqCst) == request {
+                    ui.set_action_busy(false);
+                    ui.set_action_error(true);
+                    ui.set_action_message(SharedString::from(
+                        "Não foi possível iniciar a abertura em segundo plano.",
+                    ));
+                }
+            });
+        }
     });
 
     // A detecção geral também permanece fora da UI thread.

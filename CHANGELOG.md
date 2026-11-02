@@ -88,6 +88,8 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/), 
 - Interface da aba Apps: fontes não verificadas/viáveis não aparecem mais como opções no seletor; diagnóstico detalhado permanece na listagem de fontes.
 - Listener de remoção de ferramentas de compatibilidade do Steam perdido no SNAPSHOT-0044 (botões Remover sem efeito).
 
+- **Gerenciamento de aplicativos na interface Slint:** ações de instalar, atualizar e remover conectadas a `system::install::acao_app`, com seleção explícita da fonte detectada, confirmação antes de remover, execução em thread de fundo e recarga dos detalhes após a operação. A ação Abrir usa `system::install::abrir_launcher`; o frontend não monta comandos nem executa shell. Mensagens de sucesso/erro são exibidas na própria tela.
+
 ## [0.1.0] — versão inicial (2026-10-22)
 
 Primeira versão funcional do app: fundação visual, detecção real de sistema, monitoramento, histórico de eventos e análise de otimização.

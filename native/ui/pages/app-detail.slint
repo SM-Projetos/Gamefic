@@ -12,8 +12,16 @@ export component AppDetailPage inherits Rectangle {
     in property <[AppSourceData]> sources;
     in property <bool> loading: false;
     in property <string> error: "";
+    in property <bool> gui: false;
+    in property <bool> action-busy: false;
+    in property <bool> action-error: false;
+    in property <string> action-message: "";
+
+    in-out property <string> confirm-source: "";
 
     callback back-requested();
+    callback source-action-requested(string, string);
+    callback open-requested();
 
     background: Theme.content-bg;
 
@@ -149,6 +157,21 @@ export component AppDetailPage inherits Rectangle {
                     }
                 }
 
+                if root.action-message != "" : Rectangle {
+                    border-radius: 10px;
+                    border-width: 1px;
+                    border-color: root.action-error ? Theme.warning : Theme.card-border;
+                    background: Theme.card-bg;
+                    height: 48px;
+                    Text {
+                        text: root.action-message;
+                        color: root.action-error ? Theme.warning : Theme.text-secondary;
+                        font-size: 11px;
+                        wrap: word-wrap;
+                        vertical-alignment: center;
+                    }
+                }
+
                 VerticalLayout {
                     spacing: 10px;
                     Text {
@@ -158,7 +181,7 @@ export component AppDetailPage inherits Rectangle {
                         font-weight: 700;
                     }
                     Text {
-                        text: "Disponibilidade e versões consultadas no sistema. Nenhuma operação é executada nesta etapa.";
+                        text: "Gerencie cada instalação pela fonte correspondente. A remoção exige confirmação.";
                         color: Theme.text-secondary;
                         font-size: 11px;
                         wrap: word-wrap;
@@ -209,6 +232,92 @@ export component AppDetailPage inherits Rectangle {
                                 color: Theme.text-muted;
                                 font-size: 10px;
                                 wrap: word-wrap;
+                            }
+
+                            if source.installed && source.repository_version != "" && source.version != source.repository_version : Rectangle {
+                                height: 34px;
+                                border-radius: 8px;
+                                background: root.action-busy ? Theme.control-bg : Theme.accent;
+                                Text {
+                                    text: root.action-busy ? "Operação em andamento…" : "Atualizar";
+                                    color: Theme.text-on-accent;
+                                    font-size: 11px;
+                                    font-weight: 700;
+                                    horizontal-alignment: center;
+                                    vertical-alignment: center;
+                                }
+                                touch := TouchArea {
+                                    clicked => {
+                                        if !root.action-busy : root.source-action-requested("atualizar", source.id);
+                                    }
+                                }
+                            }
+
+                            if !source.installed && source.available : Rectangle {
+                                height: 34px;
+                                border-radius: 8px;
+                                background: root.action-busy ? Theme.control-bg : Theme.accent;
+                                Text {
+                                    text: root.action-busy ? "Operação em andamento…" : "Instalar por esta fonte";
+                                    color: Theme.text-on-accent;
+                                    font-size: 11px;
+                                    font-weight: 700;
+                                    horizontal-alignment: center;
+                                    vertical-alignment: center;
+                                }
+                                touch := TouchArea {
+                                    clicked => {
+                                        if !root.action-busy : root.source-action-requested("instalar", source.id);
+                                    }
+                                }
+                            }
+
+                            if source.installed : HorizontalLayout {
+                                spacing: 8px;
+                                Rectangle {
+                                    horizontal-stretch: 1;
+                                    height: 32px;
+                                    border-radius: 8px;
+                                    background: root.action-busy ? Theme.control-bg : Theme.warning;
+                                    Text {
+                                        text: root.confirm-source == source.id ? "Confirmar remoção" : "Remover";
+                                        color: Theme.text-on-accent;
+                                        font-size: 11px;
+                                        font-weight: 700;
+                                        horizontal-alignment: center;
+                                        vertical-alignment: center;
+                                    }
+                                    touch := TouchArea {
+                                        clicked => {
+                                            if !root.action-busy : {
+                                                if root.confirm-source == source.id : {
+                                                    root.confirm-source = "";
+                                                    root.source-action-requested("remover", source.id);
+                                                } else {
+                                                    root.confirm-source = source.id;
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                                if root.confirm-source == source.id : Rectangle {
+                                    width: 88px;
+                                    height: 32px;
+                                    border-radius: 8px;
+                                    border-width: 1px;
+                                    border-color: Theme.card-border;
+                                    background: Theme.control-bg;
+                                    Text {
+                                        text: "Cancelar";
+                                        color: Theme.text-primary;
+                                        font-size: 10px;
+                                        horizontal-alignment: center;
+                                        vertical-alignment: center;
+                                    }
+                                    touch := TouchArea {
+                                        clicked => { root.confirm-source = ""; }
+                                    }
+                                }
                             }
                         }
                     }

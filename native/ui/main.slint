@@ -83,10 +83,16 @@ export component GameficWindow inherits Window {
     in-out property <string> detail-license: "";
     in-out property <string> detail-summary: "";
     in-out property <string> detail-description: "";
+    in-out property <bool> detail-gui: false;
     in-out property <[AppSourceData]> detail-sources: [];
+    in-out property <bool> action-busy: false;
+    in-out property <bool> action-error: false;
+    in-out property <string> action-message: "";
 
     callback app-selected(string);
     callback app-detail-closed();
+    callback source-action-requested(string, string);
+    callback app-open-requested();
 
     VerticalLayout {
         spacing: 0;
@@ -147,6 +153,14 @@ export component GameficWindow inherits Window {
                     sources: root.detail-sources;
                     loading: root.detail-loading;
                     error: root.detail-error;
+                    gui: root.detail-gui;
+                    action-busy: root.action-busy;
+                    action-error: root.action-error;
+                    action-message: root.action-message;
+                    source-action-requested(action, source) => {
+                        root.source-action-requested(action, source);
+                    }
+                    open-requested => { root.app-open-requested(); }
                     back-requested => {
                         root.selected-app-id = "";
                         root.detail-loading = false;
