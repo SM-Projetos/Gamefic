@@ -212,11 +212,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let action_generation = Arc::new(AtomicU64::new(0));
     let action_generation_cb = Arc::clone(&action_generation);
     let action_ui = ui.as_weak();
-    ui.on_source_action_requested(move |action, source| {
+    ui.on_source_action_requested(move |app_id, action, source| {
         let request = action_generation_cb.fetch_add(1, Ordering::SeqCst) + 1;
         let generation = Arc::clone(&action_generation_cb);
         let weak = action_ui.clone();
-        let id = ui.get_selected_app_id().to_string();
+        let id = app_id.to_string();
         let action = action.to_string();
         let source = source.to_string();
 
@@ -270,11 +270,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // origem (Flatpak/nativa), sem montar comandos no frontend.
     let open_generation = Arc::clone(&action_generation);
     let open_ui = ui.as_weak();
-    ui.on_app_open_requested(move || {
+    ui.on_app_open_requested(move |app_id| {
         let request = open_generation.fetch_add(1, Ordering::SeqCst) + 1;
         let generation = Arc::clone(&open_generation);
         let weak = open_ui.clone();
-        let id = ui.get_selected_app_id().to_string();
+        let id = app_id.to_string();
         let _ = weak.upgrade_in_event_loop(|ui| {
             ui.set_action_busy(true);
             ui.set_action_error(false);
