@@ -23,11 +23,11 @@ export component AppCard inherits Rectangle {
     drop-shadow-offset-y: 2px;
 
     VerticalLayout {
-        padding: 14px;
-        spacing: 9px;
+        padding: 12px;
+        spacing: 8px;
 
         HorizontalLayout {
-            height: 54px;
+            height: 60px;
             spacing: 12px;
 
             AppIcon {
@@ -53,12 +53,12 @@ export component AppCard inherits Rectangle {
             font-size: 11px;
             wrap: word-wrap;
             max-lines: 2;
-            height: 30px;
+            height: 28px;
             vertical-alignment: top;
         }
 
         HorizontalLayout {
-            height: 27px;
+            height: 24px;
             spacing: 8px;
             StatusBadge { state: root.state; }
             Rectangle {
