@@ -248,7 +248,9 @@ export component AppDetailPage inherits Rectangle {
                                 }
                                 touch := TouchArea {
                                     clicked => {
-                                        if !root.action-busy : root.source-action-requested("atualizar", source.id);
+                                        if (!root.action-busy) {
+                                            root.source-action-requested("atualizar", source.id);
+                                        }
                                     }
                                 }
                             }
@@ -259,7 +261,7 @@ export component AppDetailPage inherits Rectangle {
                                 background: root.action-busy ? Theme.control-bg : Theme.accent;
                                 Text {
                                     text: root.action-busy ? "Operação em andamento…" : "Instalar por esta fonte";
-                                    color: Theme.text-on-accent;
+                                    color: #ffffff;
                                     font-size: 11px;
                                     font-weight: 700;
                                     horizontal-alignment: center;
@@ -267,7 +269,9 @@ export component AppDetailPage inherits Rectangle {
                                 }
                                 touch := TouchArea {
                                     clicked => {
-                                        if !root.action-busy : root.source-action-requested("instalar", source.id);
+                                        if (!root.action-busy) {
+                                            root.source-action-requested("instalar", source.id);
+                                        }
                                     }
                                 }
                             }
@@ -281,7 +285,7 @@ export component AppDetailPage inherits Rectangle {
                                     background: root.action-busy ? Theme.control-bg : Theme.warning;
                                     Text {
                                         text: root.confirm-source == source.id ? "Confirmar remoção" : "Remover";
-                                        color: Theme.text-on-accent;
+                                        color: #ffffff;
                                         font-size: 11px;
                                         font-weight: 700;
                                         horizontal-alignment: center;
@@ -289,8 +293,8 @@ export component AppDetailPage inherits Rectangle {
                                     }
                                     touch := TouchArea {
                                         clicked => {
-                                            if !root.action-busy : {
-                                                if root.confirm-source == source.id : {
+                                            if (!root.action-busy) {
+                                                if (root.confirm-source == source.id) {
                                                     root.confirm-source = "";
                                                     root.source-action-requested("remover", source.id);
                                                 } else {
