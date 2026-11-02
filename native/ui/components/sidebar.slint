@@ -18,7 +18,6 @@ component NavigationItem inherits Rectangle {
         spacing: 12px;
         padding-left: 12px;
         padding-right: 10px;
-        vertical-alignment: center;
 
         Text {
             text: root.glyph;
@@ -51,8 +50,13 @@ export component Sidebar inherits Rectangle {
 
     width: 222px;
     background: Theme.sidebar-bg;
-    border-right-width: 1px;
-    border-right-color: Theme.divider;
+
+    Rectangle {
+        x: root.width - 1px;
+        width: 1px;
+        height: root.height;
+        background: Theme.divider;
+    }
 
     VerticalLayout {
         padding-left: 16px;
