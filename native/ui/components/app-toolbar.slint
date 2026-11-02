@@ -4,44 +4,46 @@ component ToolbarAction inherits Rectangle {
     in property <string> glyph;
     in property <string> label;
     in property <int> count: 0;
+    in property <bool> compact: false;
     callback activated();
 
-    height: 38px;
-    min-width: 40px;
-    border-radius: 19px;
+    height: 34px;
+    min-width: 36px;
+    border-radius: 9px;
     border-width: 1px;
     border-color: Theme.card-border;
-    background: touch.has-hover ? Theme.control-hover : Theme.control-bg;
+    background: touch.has-hover ? Theme.control-hover : transparent;
 
     HorizontalLayout {
-        padding-left: 12px;
-        padding-right: 12px;
+        padding-left: 10px;
+        padding-right: 10px;
         spacing: 7px;
 
         Text {
             text: root.glyph;
-            color: Theme.accent;
+            color: Theme.text-secondary;
             font-size: 15px;
             font-weight: 700;
+            vertical-alignment: center;
         }
 
-        Text {
+        if !root.compact : Text {
             text: root.label;
-            color: Theme.text-primary;
-            font-size: 12px;
+            color: Theme.text-secondary;
+            font-size: 11px;
             font-weight: 600;
+            vertical-alignment: center;
         }
 
         if root.count > 0 : Rectangle {
-            width: 21px;
-            height: 21px;
-            border-radius: 11px;
-            background: Theme.accent;
-
+            width: 20px;
+            height: 20px;
+            border-radius: 10px;
+            background: Theme.warning;
             Text {
-                text: "\{root.count}";
+                text: "\\{root.count}";
                 color: #ffffff;
-                font-size: 11px;
+                font-size: 10px;
                 font-weight: 700;
                 horizontal-alignment: center;
                 vertical-alignment: center;
@@ -64,7 +66,7 @@ export component AppToolbar inherits Rectangle {
     callback updates-requested();
     callback settings-requested();
 
-    height: 68px;
+    height: 56px;
     background: Theme.toolbar-bg;
 
     Rectangle {
@@ -76,14 +78,15 @@ export component AppToolbar inherits Rectangle {
 
     HorizontalLayout {
         spacing: 12px;
-        padding-left: 26px;
-        padding-right: 22px;
+        padding-left: 24px;
+        padding-right: 18px;
 
         Text {
-            text: root.page-title;
+            text: root.page-title == "Desempenho" ? "Monitor do Sistema" : root.page-title;
             color: Theme.text-primary;
-            font-size: 21px;
+            font-size: 18px;
             font-weight: 700;
+            vertical-alignment: center;
         }
 
         Rectangle {
@@ -92,28 +95,26 @@ export component AppToolbar inherits Rectangle {
         }
 
         Rectangle {
-            height: 34px;
-            border-radius: 17px;
+            height: 30px;
+            border-radius: 8px;
             border-width: 1px;
             border-color: Theme.card-border;
             background: Theme.card-bg;
 
             HorizontalLayout {
-                padding-left: 11px;
-                padding-right: 12px;
+                padding-left: 10px;
+                padding-right: 10px;
                 spacing: 7px;
-
                 Rectangle {
-                    width: 8px;
-                    height: 8px;
+                    width: 7px;
+                    height: 7px;
                     border-radius: 4px;
-                    background: #08c879;
+                    background: #34d399;
                 }
-
                 Text {
                     text: root.status-text;
                     color: Theme.text-secondary;
-                    font-size: 11px;
+                    font-size: 10px;
                     vertical-alignment: center;
                     overflow: elide;
                 }
@@ -126,16 +127,16 @@ export component AppToolbar inherits Rectangle {
             count: root.update-count;
             activated => { root.updates-requested(); }
         }
-
         ToolbarAction {
             glyph: root.dark-theme ? "☼" : "◐";
-            label: root.dark-theme ? "Tema escuro" : "Tema claro";
+            label: "Tema";
+            compact: true;
             activated => { root.toggle-theme(); }
         }
-
         ToolbarAction {
             glyph: "⚙";
             label: "Configurações";
+            compact: true;
             activated => { root.settings-requested(); }
         }
     }
