@@ -169,7 +169,7 @@ fn percent_int(value: Option<f32>) -> i32 {
 }
 
 fn apply_metric_sample(ui: &GameficWindow, sample: monitor::MetricSample) {
-    let cpu_peak = sample.cpu_percent.map(|value| format!("Uso atual: {value:.1}%")).unwrap_or_else(|| "Uso da CPU indisponível".to_string());
+    let cpu_peak = sample.cpu_peak_percent.map(|value| format!("Pico: {value:.1}%")).unwrap_or_else(|| "Pico: Não disponível".to_string());
     let cpu_frequency = sample.cpu_freq_avg_mhz
         .map(|mhz| if mhz >= 1000 { format!("Frequência média: {:.2} GHz", mhz as f32 / 1000.0) } else { format!("Frequência média: {mhz} MHz") })
         .unwrap_or_else(|| "Frequência média: Não disponível".to_string());
@@ -188,7 +188,8 @@ fn apply_metric_sample(ui: &GameficWindow, sample: monitor::MetricSample) {
         Some(_) => "Conexão identificada",
         None => "Conexão não identificada",
     };
-    ui.set_metric_network_value(SharedString::from(network_link));
+    let network_label = match sample.net_link.as_deref() { Some("cabo") => "Cabo", Some("wifi") => "Wi-Fi", Some("off") => "Offline", Some(_) => "Rede ativa", None => "Não disponível" };
+    ui.set_metric_network_value(SharedString::from(network_label));
     ui.set_metric_network_link(SharedString::from(network_link));
     ui.set_metric_network_detail_a(SharedString::from(sample.net_download_bps.map(|v| format!("Download: {}", format_rate(v))).unwrap_or_else(|| "Download: Não disponível".to_string())));
     ui.set_metric_network_detail_b(SharedString::from(sample.net_upload_bps.map(|v| format!("Upload: {}", format_rate(v))).unwrap_or_else(|| "Upload: Não disponível".to_string())));
@@ -226,17 +227,20 @@ fn apply_metric_sample(ui: &GameficWindow, sample: monitor::MetricSample) {
     }));
 
     let swap_percent = sample.swap_used_percent;
+    let swap_configured = sample.swap_total_kb.is_some();
     let swap_available = sample.swap_total_kb.map(|value| value > 0).unwrap_or(false);
     ui.set_metric_swap_available(swap_available);
-    ui.set_metric_swap_value(SharedString::from(if swap_available { percent_text(swap_percent) } else { "Sem swap ativo".to_string() }));
+    ui.set_metric_swap_value(SharedString::from(if swap_available { percent_text(swap_percent) } else if swap_configured { "Sem swap ativo".to_string() } else { "Não disponível".to_string() }));
     ui.set_metric_swap_percent(percent_int(swap_percent));
     ui.set_metric_swap_detail_a(SharedString::from(match (sample.swap_used_kb, sample.swap_total_kb) {
         (Some(used), Some(total)) if total > 0 => format!("Em uso: {} / {}", format_gib(used), format_gib(total)),
-        _ => "Swap não configurada ou indisponível".to_string(),
+        (Some(_), Some(0)) => "Sem swap ativo".to_string(),
+        _ => "Swap não disponível".to_string(),
     }));
     ui.set_metric_swap_detail_b(SharedString::from(match (sample.swap_used_kb, sample.swap_total_kb) {
         (Some(used), Some(total)) if total > 0 => format!("Disponível: {}", format_gib(total.saturating_sub(used))),
-        _ => "Sem espaço de swap disponível".to_string(),
+        (Some(_), Some(0)) => "Sem swap ativo".to_string(),
+        _ => "Disponibilidade da swap desconhecida".to_string(),
     }));
 }
 

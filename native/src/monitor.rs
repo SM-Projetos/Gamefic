@@ -71,6 +71,7 @@ impl MonitorController {
             .name("gamefic-monitor".to_string())
             .spawn(move || {
                 let mut net_previous: Option<(u64, u64, u64)> = None;
+                let mut cpu_peak_percent: Option<f32> = None;
 
                 while running.load(Ordering::SeqCst) {
                     let sample = collect_sample(&mut net_previous);
@@ -145,6 +146,7 @@ fn collect_sample(net_previous: &mut Option<(u64, u64, u64)>) -> MetricSample {
 
     MetricSample {
         cpu_percent: cpu::usage_percent(),
+        cpu_peak_percent: None,
         cpu_freq_avg_mhz: average_cpu_frequency(),
         temp_max_c: hottest.map(|reading| reading.celsius),
         temp_label: hottest.map(|reading| format!("{} · {}", reading.chip, reading.label)),
